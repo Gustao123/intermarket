@@ -5,6 +5,14 @@ import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
 import { preguntarGemini } from "../services/geminiService";
 
+// Imágenes reales de Capi (src/assets/)
+import capiBurbuja from "../assets/capi_burbuja.jpeg";
+import capiChat from "../assets/capi_chat.jpeg";
+
+/* Avatar circular de Capi: se usa en la burbuja flotante,
+   en el header del chat y junto a cada mensaje del bot. */
+const CapiAvatar = () => <img src={capiBurbuja} alt="Capi" />;
+
 /* ===========================================================
    CACHE DEL CHAT
 =========================================================== */
@@ -76,6 +84,17 @@ const limpiarMarkdown = (texto) =>
     .replace(/^#{1,6}\s*/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+const formatearHora = (fecha) => {
+  try {
+    return new Date(fecha).toLocaleTimeString("es-NI", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+};
 
 /* ===========================================================
    COMPONENTE PRINCIPAL
@@ -675,249 +694,113 @@ Dirección: ${t.direccion || "No especificada"}
       <button
         type="button"
         aria-label="Asistente InterMarket"
+        className="chatbot-float"
         onClick={() => setAbierto(!abierto)}
-        style={{
-          position: "fixed",
-          bottom: "90px",
-          right: "20px",
-          width: "60px",
-          height: "60px",
-          borderRadius: "50%",
-          border: "none",
-          background: "linear-gradient(135deg,#0d5c63,#14b8a6)",
-          color: "#fff",
-          boxShadow: "0 8px 25px rgba(0,0,0,.25)",
-          cursor: "pointer",
-          zIndex: 9999,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          fontSize: "26px",
-        }}
       >
-        <i className={`bi ${abierto ? "bi-x-lg" : "bi-robot"}`} />
+        {abierto ? (
+          <i className="bi bi-x-lg chatbot-float-icon" />
+        ) : (
+          <>
+            <CapiAvatar />
+            <span className="chatbot-float-dot" />
+          </>
+        )}
       </button>
 
       {/* VENTANA DEL CHAT */}
       {abierto && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "160px",
-            right: "20px",
-            width: "360px",
-            maxWidth: "95vw",
-            height: "560px",
-            background: "#ffffff",
-            borderRadius: "22px",
-            overflow: "hidden",
-            boxShadow: "0 15px 45px rgba(0,0,0,.25)",
-            display: "flex",
-            flexDirection: "column",
-            zIndex: 9999,
-          }}
-        >
+        <div className="chatbot-container">
           {/* ================= HEADER ================= */}
-          <div
-            style={{
-              background: "linear-gradient(135deg,#0d5c63,#14919b)",
-              color: "#fff",
-              padding: "15px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-              }}
-            >
-              <div
-                style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "14px",
-                  background: "rgba(255,255,255,.15)",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  fontSize: "22px",
-                }}
-              >
-                <i className="bi bi-robot"></i>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    fontWeight: "700",
-                    fontSize: "15px",
-                  }}
-                >
-                  Asistente InterMarket
-                </div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    opacity: ".85",
-                  }}
-                >
-                  Ayuda fácil • Productos y ofertas
-                </div>
-              </div>
-              <button
-                onClick={() => setAbierto(false)}
-                style={{
-                  background: "transparent",
-                  color: "#fff",
-                  border: "none",
-                  fontSize: "20px",
-                  cursor: "pointer",
-                }}
-              >
-                <i className="bi bi-x-lg"></i>
-              </button>
+          <div className="chatbot-header">
+            <div className="chatbot-header-avatar">
+              <CapiAvatar />
             </div>
 
-            {/* BOTONES SUPERIORES */}
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginTop: "15px",
-              }}
-            >
+            <div className="chatbot-header-info">
+              <div className="nombre">Capi</div>
+              <div className="subtitulo">Asistente de InterMarket</div>
+            </div>
+
+            <div className="chatbot-header-actions">
               <button
+                type="button"
                 onClick={nuevoChat}
-                style={{
-                  flex: 1,
-                  border: "none",
-                  background: "rgba(255,255,255,.18)",
-                  color: "#fff",
-                  borderRadius: "10px",
-                  padding: "8px",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                }}
+                title="Nueva pregunta"
+                aria-label="Nueva pregunta"
               >
-                <i className="bi bi-chat-dots me-2"></i>
-                Nueva pregunta
+                <i className="bi bi-arrow-clockwise"></i>
               </button>
               <button
+                type="button"
                 onClick={eliminarHistorial}
-                style={{
-                  flex: 1,
-                  border: "none",
-                  background: "rgba(220,38,38,.85)",
-                  color: "#fff",
-                  borderRadius: "10px",
-                  padding: "8px",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                }}
+                title="Borrar chat"
+                aria-label="Borrar chat"
               >
-                <i className="bi bi-trash3 me-2"></i>
-                Borrar chat
+                <i className="bi bi-trash3"></i>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbierto(false)}
+                title="Cerrar"
+                aria-label="Cerrar"
+              >
+                <i className="bi bi-x-lg"></i>
               </button>
             </div>
           </div>
 
           {/* ================= MENSAJES ================= */}
-          <div
-            style={{
-              flex: 1,
-              background: "#f4f8fb",
-              overflowY: "auto",
-              padding: "14px",
-            }}
-          >
+          <div className="chatbot-messages">
             {mensajes.map((mensaje) => (
               <div
                 key={mensaje.id}
-                style={{
-                  display: "flex",
-                  justifyContent:
-                    mensaje.de === "user"
-                      ? "flex-end"
-                      : "flex-start",
-                  marginBottom: "12px",
-                }}
+                className={`chatbot-message ${mensaje.de}`}
               >
-                <div
-                  style={{
-                    maxWidth: "85%",
-                    background:
-                      mensaje.de === "user"
-                        ? "#0d5c63"
-                        : "#ffffff",
-                    color:
-                      mensaje.de === "user"
-                        ? "#fff"
-                        : "#0f172a",
-                    padding: "11px 13px",
-                    borderRadius:
-                      mensaje.de === "user"
-                        ? "18px 18px 4px 18px"
-                        : "18px 18px 18px 4px",
-                    whiteSpace: "pre-wrap",
-                    lineHeight: "1.45",
-                    fontSize: "14px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,.05)",
-                  }}
-                >
-                  {mensaje.texto}
+                {mensaje.de === "bot" && (
+                  <div className="chatbot-avatar-mini">
+                    <CapiAvatar />
+                  </div>
+                )}
+
+                <div className="chatbot-bubble-wrap">
+                  <div className="chatbot-bubble">{mensaje.texto}</div>
+                  <div className="chatbot-timestamp">
+                    {formatearHora(mensaje.fecha)}
+                    {mensaje.de === "user" && (
+                      <i className="bi bi-check2-all"></i>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
 
             {pensando && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  color: "#0d5c63",
-                  fontSize: "13px",
-                  marginBottom: "10px",
-                }}
-              >
-                <Spinner animation="border" size="sm" />
-                Buscando...
+              <div className="chatbot-message bot">
+                <div className="chatbot-avatar-mini">
+                  <CapiAvatar />
+                </div>
+                <div className="chatbot-bubble-wrap">
+                  <div className="chatbot-bubble d-flex align-items-center gap-2">
+                    <Spinner animation="border" size="sm" />
+                    Buscando...
+                  </div>
+                </div>
               </div>
             )}
+
+            <img className="chatbot-mascota-bg" src={capiChat} alt="" />
+
             <div ref={finRef}></div>
           </div>
 
           {/* ================= SUGERENCIAS ================= */}
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              overflowX: "auto",
-              padding: "10px",
-              background: "#ffffff",
-              borderTop: "1px solid #e2e8f0",
-            }}
-          >
+          <div className="chatbot-suggestions">
             {sugerencias.map((sugerencia) => (
               <button
                 key={sugerencia}
                 type="button"
                 disabled={pensando}
                 onClick={() => enviar(sugerencia)}
-                style={{
-                  flex: "0 0 auto",
-                  border: "1px solid #0d9488",
-                  background: "#ecfeff",
-                  color: "#0d5c63",
-                  borderRadius: "20px",
-                  padding: "6px 12px",
-                  fontSize: "12px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
               >
                 {sugerencia}
               </button>
@@ -930,51 +813,25 @@ Dirección: ${t.direccion || "No especificada"}
               e.preventDefault();
               enviar();
             }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "12px",
-              borderTop: "1px solid #e2e8f0",
-              background: "#ffffff",
-            }}
+            className="chatbot-input"
           >
+            <span className="chatbot-input-plus" aria-hidden="true">
+              <i className="bi bi-plus-lg"></i>
+            </span>
+
             <textarea
               rows={1}
               value={entrada}
               disabled={pensando}
               onKeyDown={manejarEnter}
               onChange={(e) => setEntrada(e.target.value)}
-              placeholder="Escribe tu pregunta aquí..."
-              style={{
-                flex: 1,
-                resize: "none",
-                border: "1px solid #cbd5e1",
-                borderRadius: "18px",
-                padding: "10px 14px",
-                outline: "none",
-                fontSize: "14px",
-                maxHeight: "90px",
-                overflowY: "auto",
-              }}
+              placeholder="Escribe un mensaje..."
             />
+
             <button
               type="submit"
+              className="chatbot-send"
               disabled={pensando || !entrada.trim()}
-              style={{
-                width: "46px",
-                height: "46px",
-                borderRadius: "50%",
-                border: "none",
-                background: pensando ? "#94a3b8" : "#0d5c63",
-                color: "#ffffff",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                cursor: pensando ? "not-allowed" : "pointer",
-                transition: ".2s",
-                fontSize: "18px",
-              }}
             >
               {pensando ? (
                 <Spinner animation="border" size="sm" />
@@ -985,16 +842,7 @@ Dirección: ${t.direccion || "No especificada"}
           </form>
 
           {/* ================= FOOTER ================= */}
-          <div
-            style={{
-              padding: "8px 12px",
-              background: "#f8fafc",
-              borderTop: "1px solid #e2e8f0",
-              fontSize: "11px",
-              color: "#64748b",
-              textAlign: "center",
-            }}
-          >
+          <div className="chatbot-footer">
             Asistente sencillo de InterMarket
           </div>
         </div>
