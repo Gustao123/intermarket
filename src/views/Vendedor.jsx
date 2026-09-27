@@ -495,7 +495,9 @@ const Vendedor = () => {
             </p>
           </div>
         ) : (
-          <div className="d-flex flex-column gap-3">
+          // En móvil (por defecto, col-12) sigue tal cual: una tarjeta por fila.
+          // Desde tablet/escritorio (col-md-6) pasa a 2 tarjetas por fila.
+          <div className="row g-3">
             {pedidosRecientes.map((pedido) => {
               const img = getImagenProducto(pedido);
               const total =
@@ -504,158 +506,160 @@ const Vendedor = () => {
               const nombreTienda = pedido.tiendas?.nombre_tienda;
 
               return (
-                <div
-                  key={pedido.id_pedido}
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: 16,
-                    padding: "12px 14px",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-3">
-                    {/* Imagen */}
-                    <div
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 12,
-                        backgroundColor: "#f1f5f9",
-                        overflow: "hidden",
-                        flexShrink: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {img ? (
-                        <img
-                          src={img}
-                          alt=""
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      ) : (
-                        <i className="bi bi-image" style={{ fontSize: "1.4rem", color: "#cbd5e1" }} />
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="col-12 col-md-6" key={pedido.id_pedido}>
+                  <div
+                    style={{
+                      backgroundColor: "white",
+                      borderRadius: 16,
+                      padding: "12px 14px",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                      height: "100%",
+                    }}
+                  >
+                    <div className="d-flex align-items-center gap-3">
+                      {/* Imagen */}
                       <div
                         style={{
-                          fontWeight: 600,
-                          fontSize: "0.95rem",
-                          color: "#0f172a",
-                          whiteSpace: "nowrap",
+                          width: 56,
+                          height: 56,
+                          borderRadius: 12,
+                          backgroundColor: "#f1f5f9",
                           overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
-                        {pedido.productos?.nombre_producto || "Producto"}
+                        {img ? (
+                          <img
+                            src={img}
+                            alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <i className="bi bi-image" style={{ fontSize: "1.4rem", color: "#cbd5e1" }} />
+                        )}
                       </div>
 
-                      {/* Tienda solo si tiene más de 1 */}
-                      {tiendas.length > 1 && nombreTienda && (
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: "0.72rem",
-                            color: "#0d5c63",
+                            fontWeight: 600,
+                            fontSize: "0.95rem",
+                            color: "#0f172a",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {pedido.productos?.nombre_producto || "Producto"}
+                        </div>
+
+                        {/* Tienda solo si tiene más de 1 */}
+                        {tiendas.length > 1 && nombreTienda && (
+                          <div
+                            style={{
+                              fontSize: "0.72rem",
+                              color: "#0d5c63",
+                              fontWeight: 600,
+                              marginTop: 2,
+                            }}
+                          >
+                            <i className="bi bi-shop me-1"></i>
+                            {nombreTienda}
+                          </div>
+                        )}
+
+                        <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginTop: 2 }}>
+                          Pedido #{idCorto}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: getEstadoColor(pedido.id_estado),
                             fontWeight: 600,
                             marginTop: 2,
                           }}
                         >
-                          <i className="bi bi-shop me-1"></i>
-                          {nombreTienda}
+                          {getEstadoTexto(pedido.id_estado)}
                         </div>
-                      )}
-
-                      <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginTop: 2 }}>
-                        Pedido #{idCorto}
                       </div>
+
+                      {/* Precio */}
                       <div
                         style={{
-                          fontSize: "0.75rem",
-                          color: getEstadoColor(pedido.id_estado),
-                          fontWeight: 600,
-                          marginTop: 2,
+                          fontWeight: 700,
+                          fontSize: "0.95rem",
+                          color: "#0d5c63",
+                          flexShrink: 0,
                         }}
                       >
-                        {getEstadoTexto(pedido.id_estado)}
+                        C${" "}
+                        {total.toLocaleString("es-NI", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </div>
                     </div>
 
-                    {/* Precio */}
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.95rem",
-                        color: "#0d5c63",
-                        flexShrink: 0,
-                      }}
-                    >
-                      C${" "}
-                      {total.toLocaleString("es-NI", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
+                    {/* Acciones rápidas de estado (solo si está pendiente) */}
+                    {pedido.id_estado === 1 && (
+                      <div className="d-flex gap-2 mt-2 pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
+                        <button
+                          onClick={() => cambiarEstadoPedido(pedido.id_pedido, 2)}
+                          style={{
+                            flex: 1,
+                            border: "none",
+                            borderRadius: 10,
+                            padding: "8px",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            backgroundColor: "#dcfce7",
+                            color: "#16a34a",
+                          }}
+                        >
+                          Aceptar
+                        </button>
+                        <button
+                          onClick={() => cambiarEstadoPedido(pedido.id_pedido, 3)}
+                          style={{
+                            flex: 1,
+                            border: "none",
+                            borderRadius: 10,
+                            padding: "8px",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            backgroundColor: "#fee2e2",
+                            color: "#dc2626",
+                          }}
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+                    )}
+
+                    {pedido.id_estado === 2 && (
+                      <div className="mt-2 pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
+                        <button
+                          onClick={() => cambiarEstadoPedido(pedido.id_pedido, 4)}
+                          style={{
+                            width: "100%",
+                            border: "none",
+                            borderRadius: 10,
+                            padding: "8px",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            backgroundColor: "#dbeafe",
+                            color: "#2563eb",
+                          }}
+                        >
+                          Marcar como entregado
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  {/* Acciones rápidas de estado (solo si está pendiente) */}
-                  {pedido.id_estado === 1 && (
-                    <div className="d-flex gap-2 mt-2 pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
-                      <button
-                        onClick={() => cambiarEstadoPedido(pedido.id_pedido, 2)}
-                        style={{
-                          flex: 1,
-                          border: "none",
-                          borderRadius: 10,
-                          padding: "8px",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          backgroundColor: "#dcfce7",
-                          color: "#16a34a",
-                        }}
-                      >
-                        Aceptar
-                      </button>
-                      <button
-                        onClick={() => cambiarEstadoPedido(pedido.id_pedido, 3)}
-                        style={{
-                          flex: 1,
-                          border: "none",
-                          borderRadius: 10,
-                          padding: "8px",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          backgroundColor: "#fee2e2",
-                          color: "#dc2626",
-                        }}
-                      >
-                        Rechazar
-                      </button>
-                    </div>
-                  )}
-
-                  {pedido.id_estado === 2 && (
-                    <div className="mt-2 pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
-                      <button
-                        onClick={() => cambiarEstadoPedido(pedido.id_pedido, 4)}
-                        style={{
-                          width: "100%",
-                          border: "none",
-                          borderRadius: 10,
-                          padding: "8px",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          backgroundColor: "#dbeafe",
-                          color: "#2563eb",
-                        }}
-                      >
-                        Marcar como entregado
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}
