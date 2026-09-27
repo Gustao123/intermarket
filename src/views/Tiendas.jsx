@@ -436,105 +436,109 @@ const Tiendas = () => {
             </Button>
           </div>
         ) : (
-          <div className="d-flex flex-column gap-3">
+          // En móvil (por defecto, col-12) sigue tal cual: una tarjeta por fila.
+          // Desde tablet/escritorio (col-md-6) pasa a 2 tarjetas por fila.
+          <div className="row g-3">
             {tiendas.map((tienda) => (
-              <div
-                key={tienda.id_tienda}
-                style={{
-                  backgroundColor: "white",
-                  borderRadius: 18,
-                  padding: "16px 18px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-                }}
-              >
+              <div className="col-12 col-md-6" key={tienda.id_tienda}>
                 <div
                   style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 14,
-                    backgroundColor: "#e8f4f8",
+                    backgroundColor: "white",
+                    borderRadius: 18,
+                    padding: "16px 18px",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    overflow: "hidden",
+                    gap: 14,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                    height: "100%",
                   }}
                 >
-                  {tienda.imagen_url ? (
-                    <img
-                      src={tienda.imagen_url}
-                      alt={tienda.nombre_tienda}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  ) : (
-                    <div style={{ fontSize: "2rem" }}>🏪</div>
-                  )}
-                </div>
-
-                <div className="flex-grow-1" style={{ minWidth: 0 }}>
                   <div
                     style={{
-                      fontWeight: 700,
-                      fontSize: "1.05rem",
-                      color: "#0f172a",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {tienda.nombre_tienda}
-                  </div>
-                  <div
-                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 14,
+                      backgroundColor: "#e8f4f8",
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
-                      marginTop: 4,
-                      fontSize: "0.85rem",
-                      color: "#0d5c63",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      overflow: "hidden",
                     }}
                   >
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        backgroundColor: "#22c55e",
-                        display: "inline-block",
-                      }}
-                    />
-                    Tienda activa
+                    {tienda.imagen_url ? (
+                      <img
+                        src={tienda.imagen_url}
+                        alt={tienda.nombre_tienda}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: "2rem" }}>🏪</div>
+                    )}
                   </div>
-                </div>
 
-                <div className="d-flex align-items-center gap-2">
-                  <button
-                    className="btn p-0 border-0 bg-transparent"
-                    onClick={() => abrirModalEliminacion(tienda)}
-                    title="Eliminar"
-                  >
-                    <i
-                      className="bi bi-trash"
-                      style={{ fontSize: "1.15rem", color: "#ef4444" }}
-                    />
-                  </button>
-                  <button
-                    className="btn p-0 border-0 bg-transparent"
-                    onClick={() => abrirModalEdicion(tienda)}
-                    title="Editar"
-                  >
-                    <i
-                      className="bi bi-pencil-square"
-                      style={{ fontSize: "1.15rem", color: "#0d5c63" }}
-                    />
-                  </button>
+                  <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "1.05rem",
+                        color: "#0f172a",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {tienda.nombre_tienda}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: 4,
+                        fontSize: "0.85rem",
+                        color: "#0d5c63",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          backgroundColor: "#22c55e",
+                          display: "inline-block",
+                        }}
+                      />
+                      Tienda activa
+                    </div>
+                  </div>
+
+                  <div className="d-flex align-items-center gap-2">
+                    <button
+                      className="btn p-0 border-0 bg-transparent"
+                      onClick={() => abrirModalEliminacion(tienda)}
+                      title="Eliminar"
+                    >
+                      <i
+                        className="bi bi-trash"
+                        style={{ fontSize: "1.15rem", color: "#ef4444" }}
+                      />
+                    </button>
+                    <button
+                      className="btn p-0 border-0 bg-transparent"
+                      onClick={() => abrirModalEdicion(tienda)}
+                      title="Editar"
+                    >
+                      <i
+                        className="bi bi-pencil-square"
+                        style={{ fontSize: "1.15rem", color: "#0d5c63" }}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
