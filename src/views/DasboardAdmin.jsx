@@ -1,8 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import * as XLSX from "xlsx";
 
 const DEPTOS_NI = [
   "Managua",
@@ -110,6 +113,10 @@ export const DasboardAdmin = () => {
   const [diaHover, setDiaHover] = useState(null);
   const [productoHover, setProductoHover] = useState(null);
   const [ventaDeptoHover, setVentaDeptoHover] = useState(null);
+
+  // Exportación (PDF / Excel)
+  const dashboardRef = useRef(null);
+  const [exportando, setExportando] = useState(null); // null | "pdf" | "excel"
 
   useEffect(() => {
     const cargar = async () => {
@@ -358,11 +365,165 @@ export const DasboardAdmin = () => {
     setDeptoSeleccionado((prev) => (prev === nombre ? null : nombre));
   };
 
+  // ---------- Exportar a PDF (captura visual del panel) ----------
+  const exportarPDF = async () => {
+    const nodo = dashboardRef.current;
+    if (!nodo || exportando) return;
+
+    try {
+      setExportando("pdf");
+
+      const canvas = await html2canvas(nodo, {
+        scale: 2,
+        backgroundColor: "#f0f7fa",
+        useCORS: true,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Encabezado de texto antes de la captura
+      pdf.setFontSize(14);
+      pdf.setTextColor(13, 92, 99);
+      pdf.text("Panel de estadísticas · InterMarket", 10, 12);
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 116, 139);
+      pdf.text(
+        `Nicaragua · últimos ${rango} días · generado el ${new Date().toLocaleDateString(
+          "es-NI"
+        )}`,
+        10,
+        18
+      );
+
+      const margenSuperior = 24;
+      const imgWidth = pageWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = margenSuperior;
+
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - margenSuperior;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(
+        `panel-estadisticas-${new Date().toISOString().slice(0, 10)}.pdf`
+      );
+    } catch (err) {
+      console.error("Error exportando PDF:", err);
+      alert("No se pudo generar el PDF. Intenta de nuevo.");
+    } finally {
+      setExportando(null);
+    }
+  };
+
+  // ---------- Exportar a Excel (datos reales, varias hojas) ----------
+  const exportarExcel = () => {
+    if (exportando) return;
+
+    try {
+      setExportando("excel");
+
+      const wb = XLSX.utils.book_new();
+
+      const hojaKpis = XLSX.utils.json_to_sheet([
+        {
+          Indicador: "Ingresos totales",
+          Valor: kpis.ingresos,
+          "Periodo anterior": kpis.ingresosAnterior,
+          "Cambio %": crecimientoVentas,
+        },
+        {
+          Indicador: "Clientes nuevos",
+          Valor: kpis.nuevosClientes,
+          "Periodo anterior": kpis.nuevosClientesAnterior,
+          "Cambio %": crecimientoClientes,
+        },
+        {
+          Indicador: "Pedidos",
+          Valor: kpis.pedidos,
+          "Periodo anterior": kpis.pedidosAnterior,
+          "Cambio %": porcentajeCambio(kpis.pedidos, kpis.pedidosAnterior),
+        },
+        {
+          Indicador: "Ticket promedio",
+          Valor: Math.round(ticketPromedio),
+          "Periodo anterior": Math.round(ticketAnterior),
+          "Cambio %": porcentajeCambio(ticketPromedio, ticketAnterior),
+        },
+      ]);
+      XLSX.utils.book_append_sheet(wb, hojaKpis, "KPIs");
+
+      const hojaVentasDia = XLSX.utils.json_to_sheet(
+        ventasPorDia.map((d) => ({ Fecha: d.fecha, "Total (C$)": d.total }))
+      );
+      XLSX.utils.book_append_sheet(wb, hojaVentasDia, "Ventas por dia");
+
+      const hojaProductos = XLSX.utils.json_to_sheet(
+        topProductos.map((p) => ({
+          Producto: p.nombre,
+          Pedidos: p.cantidad,
+          "Total (C$)": p.total,
+        }))
+      );
+      XLSX.utils.book_append_sheet(wb, hojaProductos, "Top productos");
+
+      const hojaUsuarios = XLSX.utils.json_to_sheet(
+        usuariosPorDepto.map((d) => ({
+          Departamento: d.nombre,
+          Usuarios: d.valor,
+        }))
+      );
+      XLSX.utils.book_append_sheet(wb, hojaUsuarios, "Usuarios por depto");
+
+      const hojaVentasDepto = XLSX.utils.json_to_sheet(
+        ventasPorDepto.map((d) => ({
+          Departamento: d.nombre,
+          "Ventas (C$)": d.valor,
+        }))
+      );
+      XLSX.utils.book_append_sheet(wb, hojaVentasDepto, "Ventas por depto");
+
+      XLSX.writeFile(
+        wb,
+        `panel-estadisticas-${new Date().toISOString().slice(0, 10)}.xlsx`
+      );
+    } catch (err) {
+      console.error("Error exportando Excel:", err);
+      alert("No se pudo generar el Excel. Intenta de nuevo.");
+    } finally {
+      setExportando(null);
+    }
+  };
+
   const tarjeta = {
     backgroundColor: "white",
     borderRadius: 16,
     padding: 18,
     boxShadow: "0 2px 10px rgba(13, 92, 99, 0.06)",
+  };
+
+  const botonExportar = {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    background: "white",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    padding: "8px 12px",
+    fontWeight: 600,
+    fontSize: "0.85rem",
+    color: "#0d5c63",
+    cursor: "pointer",
   };
 
   if (cargando) {
@@ -450,297 +611,477 @@ export const DasboardAdmin = () => {
             >
               Región: Nicaragua
             </span>
+
+            {/* Botones de exportación */}
+            <button
+              type="button"
+              onClick={exportarPDF}
+              disabled={exportando !== null}
+              style={{
+                ...botonExportar,
+                opacity: exportando !== null ? 0.6 : 1,
+              }}
+            >
+              {exportando === "pdf" ? (
+                <Spinner animation="border" size="sm" />
+              ) : (
+                <i className="bi bi-file-earmark-pdf" style={{ fontSize: "1rem" }} />
+              )}
+              PDF
+            </button>
+            <button
+              type="button"
+              onClick={exportarExcel}
+              disabled={exportando !== null}
+              style={{
+                ...botonExportar,
+                opacity: exportando !== null ? 0.6 : 1,
+              }}
+            >
+              {exportando === "excel" ? (
+                <Spinner animation="border" size="sm" />
+              ) : (
+                <i className="bi bi-file-earmark-excel" style={{ fontSize: "1rem" }} />
+              )}
+              Excel
+            </button>
           </div>
         </div>
 
-        {/* KPIs */}
-        <div className="row g-3 mb-3">
-          {[
-            {
-              etiqueta: "Ingresos totales",
-              valor: formatearDinero(kpis.ingresos),
-              delta: crecimientoVentas,
-              icono: "currency-dollar",
-            },
-            {
-              etiqueta: "Clientes nuevos",
-              valor: kpis.nuevosClientes,
-              delta: crecimientoClientes,
-              icono: "people",
-            },
-            {
-              etiqueta: "Crecimiento de ventas",
-              valor: `${crecimientoVentas}%`,
-              delta: crecimientoVentas,
-              icono: "graph-up-arrow",
-            },
-            {
-              etiqueta: "Ticket promedio",
-              valor: formatearDinero(ticketPromedio),
-              delta: porcentajeCambio(ticketPromedio, ticketAnterior),
-              icono: "bag-check",
-            },
-          ].map((k) => (
-            <div className="col-6 col-lg-3" key={k.etiqueta}>
-              <div
-                style={{
-                  ...tarjeta,
-                  transition: "transform 0.15s, box-shadow 0.15s",
-                  cursor: "default",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-3px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 20px rgba(13, 92, 99, 0.12)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "none";
-                  e.currentTarget.style.boxShadow = tarjeta.boxShadow;
-                }}
-              >
-                <div className="d-flex justify-content-between align-items-start">
-                  <small style={{ color: "#64748b", fontWeight: 500 }}>
-                    {k.etiqueta}
+        {/* Todo lo de aquí para abajo es lo que se captura en el PDF */}
+        <div ref={dashboardRef}>
+          {/* KPIs */}
+          <div className="row g-3 mb-3">
+            {[
+              {
+                etiqueta: "Ingresos totales",
+                valor: formatearDinero(kpis.ingresos),
+                delta: crecimientoVentas,
+                icono: "currency-dollar",
+              },
+              {
+                etiqueta: "Clientes nuevos",
+                valor: kpis.nuevosClientes,
+                delta: crecimientoClientes,
+                icono: "people",
+              },
+              {
+                etiqueta: "Crecimiento de ventas",
+                valor: `${crecimientoVentas}%`,
+                delta: crecimientoVentas,
+                icono: "graph-up-arrow",
+              },
+              {
+                etiqueta: "Ticket promedio",
+                valor: formatearDinero(ticketPromedio),
+                delta: porcentajeCambio(ticketPromedio, ticketAnterior),
+                icono: "bag-check",
+              },
+            ].map((k) => (
+              <div className="col-6 col-lg-3" key={k.etiqueta}>
+                <div
+                  style={{
+                    ...tarjeta,
+                    transition: "transform 0.15s, box-shadow 0.15s",
+                    cursor: "default",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-3px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 8px 20px rgba(13, 92, 99, 0.12)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "none";
+                    e.currentTarget.style.boxShadow = tarjeta.boxShadow;
+                  }}
+                >
+                  <div className="d-flex justify-content-between align-items-start">
+                    <small style={{ color: "#64748b", fontWeight: 500 }}>
+                      {k.etiqueta}
+                    </small>
+                    <i
+                      className={`bi bi-${k.icono}`}
+                      style={{ color: "#0d5c63" }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "1.35rem",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      marginTop: 8,
+                    }}
+                  >
+                    {k.valor}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      marginTop: 6,
+                      color: k.delta >= 0 ? "#059669" : "#dc2626",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {k.delta >= 0 ? "+" : ""}
+                    {k.delta}% vs periodo anterior
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="row g-3 mb-3">
+            {/* Resumen de ventas — interactivo */}
+            <div className="col-lg-8">
+              <div style={{ ...tarjeta, height: "100%", position: "relative" }}>
+                <div className="d-flex justify-content-between mb-2">
+                  <strong style={{ color: "#0f172a" }}>Resumen de ventas</strong>
+                  <small style={{ color: "#64748b" }}>
+                    {diaHover
+                      ? `${diaHover.fecha} · ${formatearDinero(diaHover.total)}`
+                      : "Pasa el cursor sobre la línea"}
                   </small>
-                  <i
-                    className={`bi bi-${k.icono}`}
-                    style={{ color: "#0d5c63" }}
-                  />
                 </div>
-                <div
-                  style={{
-                    fontSize: "1.35rem",
-                    fontWeight: 700,
-                    color: "#0f172a",
-                    marginTop: 8,
-                  }}
+                <svg
+                  viewBox="0 0 600 220"
+                  width="100%"
+                  height="220"
+                  style={{ minWidth: 280 }}
+                  onMouseLeave={() => setDiaHover(null)}
                 >
-                  {k.valor}
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    marginTop: 6,
-                    color: k.delta >= 0 ? "#059669" : "#dc2626",
-                    fontWeight: 600,
-                  }}
-                >
-                  {k.delta >= 0 ? "+" : ""}
-                  {k.delta}% vs periodo anterior
-                </div>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <line
+                      key={i}
+                      x1="40"
+                      x2="580"
+                      y1={30 + i * 40}
+                      y2={30 + i * 40}
+                      stroke="#e2e8f0"
+                    />
+                  ))}
+                  {ventasPorDia.length > 1 && (
+                    <>
+                      <path
+                        d={
+                          `M 40 ${190 - (ventasPorDia[0].total / maxDia) * 150} ` +
+                          ventasPorDia
+                            .map((d, i) => {
+                              const x =
+                                40 +
+                                (i / Math.max(1, ventasPorDia.length - 1)) * 540;
+                              const y = 190 - (d.total / maxDia) * 150;
+                              return `L ${x} ${y}`;
+                            })
+                            .join(" ") +
+                          ` L 580 190 L 40 190 Z`
+                        }
+                        fill="url(#gradAreaClaro)"
+                        opacity="0.5"
+                      />
+                      <path
+                        d={
+                          `M 40 ${190 - (ventasPorDia[0].total / maxDia) * 150} ` +
+                          ventasPorDia
+                            .map((d, i) => {
+                              const x =
+                                40 +
+                                (i / Math.max(1, ventasPorDia.length - 1)) * 540;
+                              const y = 190 - (d.total / maxDia) * 150;
+                              return `L ${x} ${y}`;
+                            })
+                            .join(" ")
+                        }
+                        fill="none"
+                        stroke="#0d5c63"
+                        strokeWidth="3"
+                      />
+                      {/* Puntos interactivos */}
+                      {ventasPorDia.map((d, i) => {
+                        const x =
+                          40 +
+                          (i / Math.max(1, ventasPorDia.length - 1)) * 540;
+                        const y = 190 - (d.total / maxDia) * 150;
+                        const activo =
+                          diaHover && diaHover.fecha === d.fecha;
+                        return (
+                          <g key={d.fecha}>
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r={activo ? 7 : 14}
+                              fill="transparent"
+                              style={{ cursor: "pointer" }}
+                              onMouseEnter={() => setDiaHover(d)}
+                            />
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r={activo ? 6 : 3}
+                              fill={activo ? "#0d5c63" : "#14b8a6"}
+                              stroke="#fff"
+                              strokeWidth="2"
+                              style={{
+                                pointerEvents: "none",
+                                transition: "r 0.15s",
+                              }}
+                            />
+                          </g>
+                        );
+                      })}
+                    </>
+                  )}
+                  <defs>
+                    <linearGradient id="gradAreaClaro" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0d5c63" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#0d5c63" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
               </div>
             </div>
-          ))}
-        </div>
 
-        <div className="row g-3 mb-3">
-          {/* Resumen de ventas — interactivo */}
-          <div className="col-lg-8">
-            <div style={{ ...tarjeta, height: "100%", position: "relative" }}>
-              <div className="d-flex justify-content-between mb-2">
-                <strong style={{ color: "#0f172a" }}>Resumen de ventas</strong>
-                <small style={{ color: "#64748b" }}>
-                  {diaHover
-                    ? `${diaHover.fecha} · ${formatearDinero(diaHover.total)}`
-                    : "Pasa el cursor sobre la línea"}
+            {/* Usuarios por departamento — interactivo */}
+            <div className="col-lg-4">
+              <div style={{ ...tarjeta, height: "100%" }}>
+                <strong style={{ color: "#0f172a" }}>
+                  Usuarios por departamento
+                </strong>
+                <small className="d-block mb-2" style={{ color: "#64748b" }}>
+                  Clic en un departamento para resaltar
                 </small>
-              </div>
-              <svg
-                viewBox="0 0 600 220"
-                width="100%"
-                height="220"
-                style={{ minWidth: 280 }}
-                onMouseLeave={() => setDiaHover(null)}
-              >
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <line
-                    key={i}
-                    x1="40"
-                    x2="580"
-                    y1={30 + i * 40}
-                    y2={30 + i * 40}
-                    stroke="#e2e8f0"
-                  />
-                ))}
-                {ventasPorDia.length > 1 && (
-                  <>
-                    <path
-                      d={
-                        `M 40 ${190 - (ventasPorDia[0].total / maxDia) * 150} ` +
-                        ventasPorDia
-                          .map((d, i) => {
-                            const x =
-                              40 +
-                              (i / Math.max(1, ventasPorDia.length - 1)) * 540;
-                            const y = 190 - (d.total / maxDia) * 150;
-                            return `L ${x} ${y}`;
-                          })
-                          .join(" ") +
-                        ` L 580 190 L 40 190 Z`
-                      }
-                      fill="url(#gradAreaClaro)"
-                      opacity="0.5"
-                    />
-                    <path
-                      d={
-                        `M 40 ${190 - (ventasPorDia[0].total / maxDia) * 150} ` +
-                        ventasPorDia
-                          .map((d, i) => {
-                            const x =
-                              40 +
-                              (i / Math.max(1, ventasPorDia.length - 1)) * 540;
-                            const y = 190 - (d.total / maxDia) * 150;
-                            return `L ${x} ${y}`;
-                          })
-                          .join(" ")
-                      }
-                      fill="none"
-                      stroke="#0d5c63"
-                      strokeWidth="3"
-                    />
-                    {/* Puntos interactivos */}
-                    {ventasPorDia.map((d, i) => {
-                      const x =
-                        40 +
-                        (i / Math.max(1, ventasPorDia.length - 1)) * 540;
-                      const y = 190 - (d.total / maxDia) * 150;
+                <div className="d-flex align-items-center gap-2">
+                  <svg width="130" height="130" viewBox="0 0 120 120">
+                    {pieSlices.map((s, i) => {
+                      if (s.porcion <= 0) return null;
+                      const end = s.start + Math.max(s.porcion, 0.5);
                       const activo =
-                        diaHover && diaHover.fecha === d.fecha;
+                        deptoHover === s.nombre ||
+                        deptoSeleccionado === s.nombre;
                       return (
-                        <g key={d.fecha}>
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r={activo ? 7 : 14}
-                            fill="transparent"
-                            style={{ cursor: "pointer" }}
-                            onMouseEnter={() => setDiaHover(d)}
-                          />
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r={activo ? 6 : 3}
-                            fill={activo ? "#0d5c63" : "#14b8a6"}
-                            stroke="#fff"
-                            strokeWidth="2"
-                            style={{
-                              pointerEvents: "none",
-                              transition: "r 0.15s",
-                            }}
-                          />
-                        </g>
+                        <path
+                          key={i}
+                          d={arcPath(60, 60, activo ? 56 : 54, s.start, end)}
+                          fill={s.color}
+                          opacity={
+                            deptoSeleccionado && deptoSeleccionado !== s.nombre
+                              ? 0.35
+                              : 1
+                          }
+                          style={{ cursor: "pointer", transition: "opacity 0.15s" }}
+                          onMouseEnter={() => setDeptoHover(s.nombre)}
+                          onMouseLeave={() => setDeptoHover(null)}
+                          onClick={() => toggleDepto(s.nombre)}
+                        >
+                          <title>
+                            {s.nombre}: {s.valor} usuarios
+                          </title>
+                        </path>
                       );
                     })}
-                  </>
-                )}
-                <defs>
-                  <linearGradient id="gradAreaClaro" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0d5c63" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#0d5c63" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-              </svg>
+                    <circle cx="60" cy="60" r="28" fill="white" />
+                    <text
+                      x="60"
+                      y="52"
+                      textAnchor="middle"
+                      fill="#64748b"
+                      fontSize="7"
+                    >
+                      {deptoHover || deptoSeleccionado || "Total"}
+                    </text>
+                    <text
+                      x="60"
+                      y="70"
+                      textAnchor="middle"
+                      fill="#0d5c63"
+                      fontSize="13"
+                      fontWeight="700"
+                    >
+                      {deptoHover || deptoSeleccionado
+                        ? usuariosPorDepto.find(
+                            (d) =>
+                              d.nombre === (deptoHover || deptoSeleccionado)
+                          )?.valor ?? 0
+                        : totalUsuariosDepto}
+                    </text>
+                  </svg>
+                  <div style={{ flex: 1, fontSize: "0.75rem" }}>
+                    {usuariosPorDepto.slice(0, 5).map((d, i) => {
+                      const activo =
+                        deptoHover === d.nombre ||
+                        deptoSeleccionado === d.nombre;
+                      return (
+                        <div
+                          key={d.nombre}
+                          className="d-flex justify-content-between mb-1"
+                          style={{
+                            padding: "2px 4px",
+                            borderRadius: 6,
+                            background: activo ? "#e6f4f6" : "transparent",
+                            cursor: "pointer",
+                            fontWeight: activo ? 700 : 400,
+                          }}
+                          onMouseEnter={() => setDeptoHover(d.nombre)}
+                          onMouseLeave={() => setDeptoHover(null)}
+                          onClick={() => toggleDepto(d.nombre)}
+                        >
+                          <span style={{ color: "#334155" }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                width: 8,
+                                height: 8,
+                                borderRadius: 2,
+                                background: COLORES[i % COLORES.length],
+                                marginRight: 6,
+                              }}
+                            />
+                            {d.nombre}
+                          </span>
+                          <strong style={{ color: "#0f172a" }}>{d.valor}</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Usuarios por departamento — interactivo */}
-          <div className="col-lg-4">
-            <div style={{ ...tarjeta, height: "100%" }}>
-              <strong style={{ color: "#0f172a" }}>
-                Usuarios por departamento
-              </strong>
-              <small className="d-block mb-2" style={{ color: "#64748b" }}>
-                Clic en un departamento para resaltar
-              </small>
-              <div className="d-flex align-items-center gap-2">
-                <svg width="130" height="130" viewBox="0 0 120 120">
-                  {pieSlices.map((s, i) => {
-                    if (s.porcion <= 0) return null;
-                    const end = s.start + Math.max(s.porcion, 0.5);
-                    const activo =
-                      deptoHover === s.nombre ||
-                      deptoSeleccionado === s.nombre;
+          <div className="row g-3 mb-3">
+            {/* Productos más vendidos — interactivo */}
+            <div className="col-lg-6">
+              <div style={tarjeta}>
+                <strong style={{ color: "#0f172a" }}>
+                  Productos más vendidos
+                </strong>
+                <div className="mt-3 d-flex flex-column gap-3">
+                  {topProductos.length === 0 && (
+                    <small style={{ color: "#94a3b8" }}>
+                      Sin ventas en el periodo
+                    </small>
+                  )}
+                  {topProductos.map((p, i) => {
+                    const activo = productoHover === p.id;
                     return (
-                      <path
-                        key={i}
-                        d={arcPath(60, 60, activo ? 56 : 54, s.start, end)}
-                        fill={s.color}
-                        opacity={
-                          deptoSeleccionado && deptoSeleccionado !== s.nombre
-                            ? 0.35
-                            : 1
-                        }
-                        style={{ cursor: "pointer", transition: "opacity 0.15s" }}
-                        onMouseEnter={() => setDeptoHover(s.nombre)}
-                        onMouseLeave={() => setDeptoHover(null)}
-                        onClick={() => toggleDepto(s.nombre)}
+                      <div
+                        key={p.id}
+                        onMouseEnter={() => setProductoHover(p.id)}
+                        onMouseLeave={() => setProductoHover(null)}
+                        style={{ cursor: "default" }}
                       >
-                        <title>
-                          {s.nombre}: {s.valor} usuarios
-                        </title>
-                      </path>
+                        <div className="d-flex justify-content-between mb-1">
+                          <span
+                            style={{
+                              fontSize: "0.88rem",
+                              color: "#334155",
+                              fontWeight: activo ? 700 : 400,
+                            }}
+                          >
+                            {p.nombre}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "0.8rem",
+                              color: activo ? "#0d5c63" : "#64748b",
+                              fontWeight: activo ? 700 : 400,
+                            }}
+                          >
+                            {formatearDinero(p.total)}
+                            {activo && p.cantidad
+                              ? ` · ${p.cantidad} pedidos`
+                              : ""}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            height: activo ? 12 : 10,
+                            borderRadius: 8,
+                            background: "#e2e8f0",
+                            overflow: "hidden",
+                            transition: "height 0.15s",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${(p.total / maxProd) * 100}%`,
+                              height: "100%",
+                              borderRadius: 8,
+                              background: `linear-gradient(90deg, ${COLORES[i % COLORES.length]}, #0d5c63)`,
+                              opacity: activo ? 1 : 0.85,
+                            }}
+                          />
+                        </div>
+                      </div>
                     );
                   })}
-                  <circle cx="60" cy="60" r="28" fill="white" />
-                  <text
-                    x="60"
-                    y="52"
-                    textAnchor="middle"
-                    fill="#64748b"
-                    fontSize="7"
-                  >
-                    {deptoHover || deptoSeleccionado || "Total"}
-                  </text>
-                  <text
-                    x="60"
-                    y="70"
-                    textAnchor="middle"
-                    fill="#0d5c63"
-                    fontSize="13"
-                    fontWeight="700"
-                  >
-                    {deptoHover || deptoSeleccionado
-                      ? usuariosPorDepto.find(
-                          (d) =>
-                            d.nombre === (deptoHover || deptoSeleccionado)
-                        )?.valor ?? 0
-                      : totalUsuariosDepto}
-                  </text>
-                </svg>
-                <div style={{ flex: 1, fontSize: "0.75rem" }}>
-                  {usuariosPorDepto.slice(0, 5).map((d, i) => {
-                    const activo =
-                      deptoHover === d.nombre ||
-                      deptoSeleccionado === d.nombre;
+                </div>
+              </div>
+            </div>
+
+            {/* Ventas por departamento — interactivo */}
+            <div className="col-lg-6">
+              <div style={tarjeta}>
+                <strong style={{ color: "#0f172a" }}>
+                  Ventas por departamento
+                </strong>
+                <small className="d-block mb-3" style={{ color: "#64748b" }}>
+                  Solo Nicaragua · pasa el cursor para detalle
+                </small>
+                <div className="d-flex flex-column gap-2">
+                  {ventasPorDepto.map((d, i) => {
+                    const activo = ventaDeptoHover === d.nombre;
                     return (
                       <div
                         key={d.nombre}
-                        className="d-flex justify-content-between mb-1"
+                        onMouseEnter={() => setVentaDeptoHover(d.nombre)}
+                        onMouseLeave={() => setVentaDeptoHover(null)}
                         style={{
-                          padding: "2px 4px",
-                          borderRadius: 6,
+                          padding: "4px 6px",
+                          borderRadius: 8,
                           background: activo ? "#e6f4f6" : "transparent",
-                          cursor: "pointer",
-                          fontWeight: activo ? 700 : 400,
+                          cursor: "default",
                         }}
-                        onMouseEnter={() => setDeptoHover(d.nombre)}
-                        onMouseLeave={() => setDeptoHover(null)}
-                        onClick={() => toggleDepto(d.nombre)}
                       >
-                        <span style={{ color: "#334155" }}>
+                        <div className="d-flex justify-content-between mb-1">
                           <span
                             style={{
-                              display: "inline-block",
-                              width: 8,
-                              height: 8,
-                              borderRadius: 2,
+                              fontSize: "0.88rem",
+                              color: "#334155",
+                              fontWeight: activo ? 700 : 400,
+                            }}
+                          >
+                            <i
+                              className="bi bi-geo-alt-fill me-1"
+                              style={{ color: COLORES[i % COLORES.length] }}
+                            />
+                            {d.nombre}
+                          </span>
+                          <strong
+                            style={{
+                              fontSize: "0.85rem",
+                              color: "#0d5c63",
+                            }}
+                          >
+                            {formatearDinero(d.valor)}
+                          </strong>
+                        </div>
+                        <div
+                          style={{
+                            height: activo ? 10 : 8,
+                            borderRadius: 8,
+                            background: "#e2e8f0",
+                            transition: "height 0.15s",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${(d.valor / maxVentaDepto) * 100}%`,
+                              height: "100%",
+                              borderRadius: 8,
                               background: COLORES[i % COLORES.length],
-                              marginRight: 6,
                             }}
                           />
-                          {d.nombre}
-                        </span>
-                        <strong style={{ color: "#0f172a" }}>{d.valor}</strong>
+                        </div>
                       </div>
                     );
                   })}
@@ -748,208 +1089,65 @@ export const DasboardAdmin = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="row g-3 mb-3">
-          {/* Productos más vendidos — interactivo */}
-          <div className="col-lg-6">
-            <div style={tarjeta}>
-              <strong style={{ color: "#0f172a" }}>
-                Productos más vendidos
-              </strong>
-              <div className="mt-3 d-flex flex-column gap-3">
-                {topProductos.length === 0 && (
-                  <small style={{ color: "#94a3b8" }}>
-                    Sin ventas en el periodo
-                  </small>
-                )}
-                {topProductos.map((p, i) => {
-                  const activo = productoHover === p.id;
-                  return (
+          {/* Barras de productos — interactivo */}
+          <div style={tarjeta}>
+            <strong style={{ color: "#0f172a" }}>
+              Productos más vendidos · volumen
+            </strong>
+            <div
+              className="d-flex align-items-end gap-2 mt-3"
+              style={{ height: 160 }}
+            >
+              {topProductos.length === 0 && (
+                <small style={{ color: "#94a3b8" }}>Sin datos</small>
+              )}
+              {topProductos.map((p, i) => {
+                const activo = productoHover === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className="d-flex flex-column align-items-center"
+                    style={{ flex: 1, cursor: "pointer" }}
+                    onMouseEnter={() => setProductoHover(p.id)}
+                    onMouseLeave={() => setProductoHover(null)}
+                    title={`${p.nombre}: ${formatearDinero(p.total)}`}
+                  >
                     <div
-                      key={p.id}
-                      onMouseEnter={() => setProductoHover(p.id)}
-                      onMouseLeave={() => setProductoHover(null)}
-                      style={{ cursor: "default" }}
-                    >
-                      <div className="d-flex justify-content-between mb-1">
-                        <span
-                          style={{
-                            fontSize: "0.88rem",
-                            color: "#334155",
-                            fontWeight: activo ? 700 : 400,
-                          }}
-                        >
-                          {p.nombre}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.8rem",
-                            color: activo ? "#0d5c63" : "#64748b",
-                            fontWeight: activo ? 700 : 400,
-                          }}
-                        >
-                          {formatearDinero(p.total)}
-                          {activo && p.cantidad
-                            ? ` · ${p.cantidad} pedidos`
-                            : ""}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          height: activo ? 12 : 10,
-                          borderRadius: 8,
-                          background: "#e2e8f0",
-                          overflow: "hidden",
-                          transition: "height 0.15s",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${(p.total / maxProd) * 100}%`,
-                            height: "100%",
-                            borderRadius: 8,
-                            background: `linear-gradient(90deg, ${COLORES[i % COLORES.length]}, #0d5c63)`,
-                            opacity: activo ? 1 : 0.85,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Ventas por departamento — interactivo */}
-          <div className="col-lg-6">
-            <div style={tarjeta}>
-              <strong style={{ color: "#0f172a" }}>
-                Ventas por departamento
-              </strong>
-              <small className="d-block mb-3" style={{ color: "#64748b" }}>
-                Solo Nicaragua · pasa el cursor para detalle
-              </small>
-              <div className="d-flex flex-column gap-2">
-                {ventasPorDepto.map((d, i) => {
-                  const activo = ventaDeptoHover === d.nombre;
-                  return (
-                    <div
-                      key={d.nombre}
-                      onMouseEnter={() => setVentaDeptoHover(d.nombre)}
-                      onMouseLeave={() => setVentaDeptoHover(null)}
                       style={{
-                        padding: "4px 6px",
-                        borderRadius: 8,
-                        background: activo ? "#e6f4f6" : "transparent",
-                        cursor: "default",
+                        width: activo ? "80%" : "70%",
+                        maxWidth: 52,
+                        height: `${(p.total / maxProd) * 130}px`,
+                        minHeight: p.total > 0 ? 8 : 2,
+                        borderRadius: "8px 8px 4px 4px",
+                        background: `linear-gradient(180deg, ${COLORES[i % COLORES.length]}, #0d5c63)`,
+                        transform: activo ? "scaleY(1.05)" : "none",
+                        transformOrigin: "bottom",
+                        transition: "all 0.15s",
+                        boxShadow: activo
+                          ? "0 4px 12px rgba(13,92,99,0.25)"
+                          : "none",
+                      }}
+                    />
+                    <small
+                      style={{
+                        fontSize: "0.65rem",
+                        color: activo ? "#0d5c63" : "#64748b",
+                        fontWeight: activo ? 700 : 400,
+                        marginTop: 6,
+                        textAlign: "center",
+                        maxWidth: "100%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      <div className="d-flex justify-content-between mb-1">
-                        <span
-                          style={{
-                            fontSize: "0.88rem",
-                            color: "#334155",
-                            fontWeight: activo ? 700 : 400,
-                          }}
-                        >
-                          <i
-                            className="bi bi-geo-alt-fill me-1"
-                            style={{ color: COLORES[i % COLORES.length] }}
-                          />
-                          {d.nombre}
-                        </span>
-                        <strong
-                          style={{
-                            fontSize: "0.85rem",
-                            color: "#0d5c63",
-                          }}
-                        >
-                          {formatearDinero(d.valor)}
-                        </strong>
-                      </div>
-                      <div
-                        style={{
-                          height: activo ? 10 : 8,
-                          borderRadius: 8,
-                          background: "#e2e8f0",
-                          transition: "height 0.15s",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${(d.valor / maxVentaDepto) * 100}%`,
-                            height: "100%",
-                            borderRadius: 8,
-                            background: COLORES[i % COLORES.length],
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      {p.nombre}
+                    </small>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        </div>
-
-        {/* Barras de productos — interactivo */}
-        <div style={tarjeta}>
-          <strong style={{ color: "#0f172a" }}>
-            Productos más vendidos · volumen
-          </strong>
-          <div
-            className="d-flex align-items-end gap-2 mt-3"
-            style={{ height: 160 }}
-          >
-            {topProductos.length === 0 && (
-              <small style={{ color: "#94a3b8" }}>Sin datos</small>
-            )}
-            {topProductos.map((p, i) => {
-              const activo = productoHover === p.id;
-              return (
-                <div
-                  key={p.id}
-                  className="d-flex flex-column align-items-center"
-                  style={{ flex: 1, cursor: "pointer" }}
-                  onMouseEnter={() => setProductoHover(p.id)}
-                  onMouseLeave={() => setProductoHover(null)}
-                  title={`${p.nombre}: ${formatearDinero(p.total)}`}
-                >
-                  <div
-                    style={{
-                      width: activo ? "80%" : "70%",
-                      maxWidth: 52,
-                      height: `${(p.total / maxProd) * 130}px`,
-                      minHeight: p.total > 0 ? 8 : 2,
-                      borderRadius: "8px 8px 4px 4px",
-                      background: `linear-gradient(180deg, ${COLORES[i % COLORES.length]}, #0d5c63)`,
-                      transform: activo ? "scaleY(1.05)" : "none",
-                      transformOrigin: "bottom",
-                      transition: "all 0.15s",
-                      boxShadow: activo
-                        ? "0 4px 12px rgba(13,92,99,0.25)"
-                        : "none",
-                    }}
-                  />
-                  <small
-                    style={{
-                      fontSize: "0.65rem",
-                      color: activo ? "#0d5c63" : "#64748b",
-                      fontWeight: activo ? 700 : 400,
-                      marginTop: 6,
-                      textAlign: "center",
-                      maxWidth: "100%",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {p.nombre}
-                  </small>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
