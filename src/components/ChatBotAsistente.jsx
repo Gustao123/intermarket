@@ -717,7 +717,7 @@ Dirección: ${t.direccion || "No especificada"}
             </div>
 
             <div className="chatbot-header-info">
-              <div className="nombre">Capi</div>
+              <div className="nombre">CapiPro</div>
               <div className="subtitulo">Asistente de InterMarket</div>
             </div>
 
@@ -750,43 +750,49 @@ Dirección: ${t.direccion || "No especificada"}
           </div>
 
           {/* ================= MENSAJES ================= */}
-          <div className="chatbot-messages">
-            {mensajes.map((mensaje) => (
-              <div
-                key={mensaje.id}
-                className={`chatbot-message ${mensaje.de}`}
-              >
-                {mensaje.de === "bot" && (
-                  <div className="chatbot-avatar-mini">
-                    <CapiAvatar />
-                  </div>
-                )}
+         <div className="chatbot-messages-wrap">
+  <img className="chatbot-mascota-bg" src={capiChat} alt="" />
 
-                <div className="chatbot-bubble-wrap">
-                  <div className="chatbot-bubble">{mensaje.texto}</div>
-                  <div className="chatbot-timestamp">
-                    {formatearHora(mensaje.fecha)}
-                    {mensaje.de === "user" && (
-                      <i className="bi bi-check2-all"></i>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+  <div className="chatbot-messages">
+    {mensajes.map((mensaje) => (
+      <div
+        key={mensaje.id}
+        className={`chatbot-message ${mensaje.de}`}
+      >
+        {mensaje.de === "bot" && (
+          <div className="chatbot-avatar-mini">
+            <CapiAvatar />
+          </div>
+        )}
 
-            {pensando && (
-              <div className="chatbot-message bot">
-                <div className="chatbot-avatar-mini">
-                  <CapiAvatar />
-                </div>
-                <div className="chatbot-bubble-wrap">
-                  <div className="chatbot-bubble d-flex align-items-center gap-2">
-                    <Spinner animation="border" size="sm" />
-                    Buscando...
-                  </div>
-                </div>
-              </div>
+        <div className="chatbot-bubble-wrap">
+          <div className="chatbot-bubble">{mensaje.texto}</div>
+          <div className="chatbot-timestamp">
+            {formatearHora(mensaje.fecha)}
+            {mensaje.de === "user" && (
+              <i className="bi bi-check2-all"></i>
             )}
+          </div>
+        </div>
+      </div>
+    ))}
+
+    {pensando && (
+      <div className="chatbot-message bot">
+        <div className="chatbot-avatar-mini">
+          <CapiAvatar />
+        </div>
+        <div className="chatbot-bubble-wrap">
+          <div className="chatbot-bubble d-flex align-items-center gap-2">
+            <Spinner animation="border" size="sm" />
+            Buscando...
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div ref={finRef}></div>
+  </div>
 
             <img className="chatbot-mascota-bg" src={capiChat} alt="" />
 

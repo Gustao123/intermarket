@@ -16629,25 +16629,24 @@ body:has(.susc-page) .margen-superior-main {
   background-color: transparent !important;
 }
 
-/* src/styles/chatbot.css */
+
 /* ===========================================================
    CHATBOT "CAPI" — InterMarket
-   Reemplaza el bloque anterior de estilos del chatbot en tu
-   App.css por este. El resto de tu App.css no se toca.
+   Dimensiones: card flotante (NO pantalla completa en móvil)
 =========================================================== */
 
 .chatbot-float {
   position: fixed;
   bottom: 90px;
-  right: 20px;
-  width: 62px;
-  height: 62px;
+  right: 16px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   border: 3px solid #ffffff;
-  background: #eaf2ff;
+  background: #e8f4f8;
   cursor: pointer;
   z-index: 9999;
-  box-shadow: 0 8px 24px rgba(15, 45, 90, 0.28);
+  box-shadow: 0 8px 24px rgba(13, 92, 99, 0.28);
   transition: transform 0.2s ease;
   padding: 0;
   display: flex;
@@ -16669,52 +16668,54 @@ body:has(.susc-page) .margen-superior-main {
 }
 
 .chatbot-float-icon {
-  font-size: 26px;
-  color: #1d4ed8;
+  font-size: 22px;
+  color: #0d5c63;
 }
 
 .chatbot-float-dot {
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #ef4444;
   border: 2px solid #ffffff;
 }
 
+/* ---- Ventana del chat (web y móvil = card, no full screen) ---- */
 .chatbot-container {
   position: fixed;
   bottom: 160px;
-  right: 20px;
-  width: 380px;
-  max-width: 95vw;
+  right: 16px;
+  width: 360px;
+  max-width: calc(100vw - 24px);
   height: 600px;
-  max-height: 82vh;
-  background: #eaf2ff;
-  border-radius: 24px;
+  max-height: calc(100dvh - 160px);
+  background: #f0f7fa;
+  border-radius: 22px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   z-index: 9999;
-  box-shadow: 0 20px 55px rgba(15, 45, 90, 0.28);
+  box-shadow: 0 16px 48px rgba(13, 92, 99, 0.22);
+  border: 1px solid rgba(13, 92, 99, 0.08);
 }
 
-/* ---------- Header ---------- */
+/* ---------- Header (teal como la captura móvil) ---------- */
 .chatbot-header {
-  background: linear-gradient(160deg, #16305c, #0f1f3d);
+  background: #0d5c63;
   color: white;
-  padding: 14px 16px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
 .chatbot-header-avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   overflow: hidden;
   background: #ffffff;
@@ -16738,13 +16739,13 @@ body:has(.susc-page) .margen-superior-main {
 
 .chatbot-header-info .nombre {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.2;
 }
 
 .chatbot-header-info .subtitulo {
-  font-size: 12px;
-  opacity: 0.8;
+  font-size: 11px;
+  opacity: 0.85;
 }
 
 .chatbot-header-actions {
@@ -16755,40 +16756,52 @@ body:has(.susc-page) .margen-superior-main {
 }
 
 .chatbot-header-actions button {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.16);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: background 0.15s;
 }
 
 .chatbot-header-actions button:hover {
-  background: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* ---------- Mensajes ---------- */
+.chatbot-messages-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #f0f7fa;
+}
+
 .chatbot-messages {
   flex: 1;
   overflow-y: auto;
-  background: #eaf2ff;
-  padding: 16px 14px;
+  background: transparent;
+  padding: 14px 12px;
   position: relative;
+  z-index: 1;
+  min-height: 0;
 }
 
+/* Capi fijo: no se mueve al hacer scroll */
 .chatbot-mascota-bg {
   position: absolute;
-  bottom: 0;
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 230px;
-  max-width: 70%;
+  width: 180px;
+  max-width: 55%;
   opacity: 0.14;
   pointer-events: none;
   z-index: 0;
@@ -16796,7 +16809,7 @@ body:has(.susc-page) .margen-superior-main {
 }
 
 .chatbot-message {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   display: flex;
   align-items: flex-end;
   gap: 8px;
@@ -16813,13 +16826,13 @@ body:has(.susc-page) .margen-superior-main {
 }
 
 .chatbot-avatar-mini {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16843,28 +16856,29 @@ body:has(.susc-page) .margen-superior-main {
 }
 
 .chatbot-bubble {
-  padding: 11px 14px;
-  border-radius: 18px;
+  padding: 10px 13px;
+  border-radius: 16px;
   line-height: 1.45;
-  font-size: 14px;
+  font-size: 13.5px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .chatbot-message.user .chatbot-bubble {
-  background: #2f6fed;
+  background: #0d5c63;
   color: white;
-  border-radius: 18px 18px 4px 18px;
+  border-radius: 16px 16px 4px 16px;
 }
 
 .chatbot-message.bot .chatbot-bubble {
-  background: #dce8fb;
+  background: #ffffff;
   color: #0f2138;
-  border-radius: 18px 18px 18px 4px;
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .chatbot-timestamp {
-  font-size: 10.5px;
+  font-size: 10px;
   color: #5b6b85;
   margin-top: 3px;
   padding: 0 4px;
@@ -16882,17 +16896,18 @@ body:has(.susc-page) .margen-superior-main {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
   flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .chatbot-suggestions button {
   flex: 0 0 auto;
-  border: 1px solid #bcd3fb;
-  background: #eaf2ff;
-  color: #1d4ed8;
+  border: 1px solid #b7dce3;
+  background: #e8f4f8;
+  color: #0d5c63;
   border-radius: 20px;
   padding: 6px 12px;
   font-size: 12px;
@@ -16911,23 +16926,23 @@ body:has(.susc-page) .margen-superior-main {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   border-top: 1px solid #e2e8f0;
   background: #ffffff;
   flex-shrink: 0;
 }
 
 .chatbot-input-plus {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: #eaf2ff;
-  color: #1d4ed8;
+  background: #e8f4f8;
+  color: #0d5c63;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .chatbot-input textarea {
@@ -16935,32 +16950,32 @@ body:has(.susc-page) .margen-superior-main {
   resize: none;
   border: 1px solid #cbd5e1;
   border-radius: 20px;
-  padding: 10px 16px;
+  padding: 9px 14px;
   outline: none;
-  font-size: 14px;
-  max-height: 90px;
+  font-size: 13.5px;
+  max-height: 80px;
   overflow-y: auto;
-  background: #f4f8fc;
+  background: #f8fafc;
 }
 
 .chatbot-input textarea:focus {
-  border-color: #2f6fed;
+  border-color: #0d5c63;
   background: #ffffff;
 }
 
 .chatbot-send {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
-  background: #2f6fed;
+  background: #0d5c63;
   color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 16px;
+  font-size: 15px;
   transition: background 0.15s;
 }
 
@@ -16971,39 +16986,48 @@ body:has(.susc-page) .margen-superior-main {
 
 /* ---------- Footer ---------- */
 .chatbot-footer {
-  padding: 6px 12px;
+  padding: 5px 12px;
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
   text-align: center;
   color: #64748b;
-  font-size: 10.5px;
+  font-size: 10px;
   flex-shrink: 0;
 }
 
 /* ===========================================================
-   RESPONSIVO
-   Web/tablet: panel flotante (igual que hoy).
-   Móvil: pantalla completa, como en el diseño de referencia.
+   MÓVIL: card flotante (NO pantalla completa)
 =========================================================== */
 @media (max-width: 576px) {
+  .chatbot-float {
+    bottom: 88px;
+    right: 14px;
+    width: 54px;
+    height: 54px;
+  }
+
   .chatbot-container {
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    height: 100dvh;
-    max-height: none;
+    left: 12px;
+    right: 12px;
+    bottom: 100px;
+    width: auto;
     max-width: none;
-    border-radius: 0;
+    height: min(70dvh, 560px);
+    max-height: calc(100dvh - 150px);
+    border-radius: 20px;
   }
 
   .chatbot-mascota-bg {
-    width: 280px;
+    width: 150px;
   }
+}
 
-  .chatbot-float {
-    bottom: 80px;
+@media (min-width: 577px) and (max-width: 992px) {
+  .chatbot-container {
+    width: 340px;
+    height: 580px;
+    max-height: calc(100dvh - 150px);
+    bottom: 150px;
     right: 16px;
   }
 }
