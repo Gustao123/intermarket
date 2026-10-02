@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Form, Spinner } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../database/supabaseconfig";
 import NotificacionOperacion from "../components/NotificacionOperacion";
 import { useAuth } from "../context/AuthContext";
@@ -13,15 +14,15 @@ const Mensajes = () => {
     const [chatActivo, setChatActivo] = useState(null);
     const [toast, setToast] = useState({ mostrar: false, mensaje: "", tipo: "" });
 
-    const { user } = useAuth();
+    const { user, role } = useAuth();
+    const navigate = useNavigate();
     const [textoMensaje, setTextoMensaje] = useState("");
     const [mensajes, setMensajes] = useState([]);
     const [miPerfilId, setMiPerfilId] = useState(null);
     const scrollRef = React.useRef(null);
 
-    // Vista móvil: alterna entre "lista" y "chat" (como una app de mensajería real)
     const [esMovil, setEsMovil] = useState(window.innerWidth < 992);
-    const [vistaMovil, setVistaMovil] = useState("lista"); // "lista" | "chat"
+    const [vistaMovil, setVistaMovil] = useState("lista");
 
     useEffect(() => {
         const manejarResize = () => setEsMovil(window.innerWidth < 992);
@@ -39,11 +40,6 @@ const Mensajes = () => {
         scrollToBottom();
     }, [mensajes]);
 
-    // 1. Obtener mi Perfil ID
-    // obtenerMiPerfil es una lectura "segura": si por algún duplicado
-    // viejo llegara a haber más de una fila en perfiles para este
-    // usuario, NO truena con "JSON object requested, multiple (or no)
-    // rows returned" — simplemente toma la primera.
     useEffect(() => {
         const obtenerPerfilId = async () => {
             if (!user) return;
@@ -68,7 +64,7 @@ const Mensajes = () => {
                     *,
                     comprador:perfiles!comprador_id(perfil_id, foto_perfil, usuarios(username)),
                     vendedor:perfiles!vendedor_id(perfil_id, foto_perfil, usuarios(username)),
-                    productos(nombre_producto, imagen_url),
+                    productos(id_producto, nombre_producto, imagen_url, precio_venta),
                     mensajes(id_mensaje, texto, leido, emisor_id, creado_en)
                 `)
                 .or(`comprador_id.eq.${miPerfilId},vendedor_id.eq.${miPerfilId}`)
@@ -93,6 +89,85 @@ const Mensajes = () => {
             setChatActivo(chats[0]);
         }
     }, [chats, chatActivo, esMovil]);
+
+    // ============================================================
+    // REALTIME GLOBAL
+    // ============================================================
+    useEffect(() => {
+        if (!miPerfilId) return;
+
+        const canalGlobal = supabase
+            .channel(`mensajes-global-${miPerfilId}`)
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "chats" },
+                (payload) => {
+                    const chat = payload.new;
+                    if (
+                        chat.comprador_id === miPerfilId ||
+                        chat.vendedor_id === miPerfilId
+                    ) {
+                        cargarChats();
+                    }
+                }
+            )
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "mensajes" },
+                (payload) => {
+                    const nuevoMensaje = payload.new;
+
+                    setChats((anteriores) => {
+                        const estaEnMisChats = anteriores.some(
+                            (c) => c.id_chat === nuevoMensaje.id_chat
+                        );
+
+                        if (!estaEnMisChats) {
+                            cargarChats();
+                            return anteriores;
+                        }
+
+                        return anteriores.map((c) =>
+                            c.id_chat === nuevoMensaje.id_chat
+                                ? {
+                                      ...c,
+                                      mensajes: [...(c.mensajes || []), nuevoMensaje],
+                                  }
+                                : c
+                        );
+                    });
+
+                    if (nuevoMensaje.emisor_id !== miPerfilId) {
+                        if (chatActivo?.id_chat === nuevoMensaje.id_chat) {
+                            supabase
+                                .from("mensajes")
+                                .update({ leido: true })
+                                .eq("id_mensaje", nuevoMensaje.id_mensaje)
+                                .then(() => {
+                                    setMensajes((prev) => {
+                                        const existe = prev.some(
+                                            (m) => m.id_mensaje === nuevoMensaje.id_mensaje
+                                        );
+                                        if (existe) {
+                                            return prev.map((m) =>
+                                                m.id_mensaje === nuevoMensaje.id_mensaje
+                                                    ? { ...m, leido: true }
+                                                    : m
+                                            );
+                                        }
+                                        return [...prev, nuevoMensaje];
+                                    });
+                                });
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(canalGlobal);
+        };
+    }, [miPerfilId, chatActivo]);
 
     const obtenerNombreOtro = (chat) => {
         if (!chat) return "Conversación";
@@ -136,7 +211,6 @@ const Mensajes = () => {
         return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
     };
 
-    // Chats ordenados por actividad más reciente (último mensaje, o creación si no hay mensajes)
     const chatsOrdenados = useMemo(() => {
         return [...chats].sort((a, b) => {
             const fechaA = obtenerUltimoMensaje(a)?.creado_en || a.creado_en;
@@ -159,60 +233,38 @@ const Mensajes = () => {
         });
     }, [textoBusqueda, chatsOrdenados, miPerfilId]);
 
-    /*const eliminarChat = async (idChat) => {
+    const eliminarChat = async (idChat) => {
         try {
-            const { error } = await supabase
+            const { error: mensajesError } = await supabase
+                .from("mensajes")
+                .delete()
+                .eq("id_chat", idChat);
+
+            if (mensajesError) throw mensajesError;
+
+            const { error: chatError } = await supabase
                 .from("chats")
                 .delete()
                 .eq("id_chat", idChat);
-            if (error) throw error;
+
+            if (chatError) throw chatError;
 
             if (chatActivo?.id_chat === idChat) {
                 setChatActivo(null);
-                setVistaMovil("lista");
+                if (esMovil) setVistaMovil("lista");
             }
+
             setToast({ mostrar: true, mensaje: "Chat eliminado exitosamente.", tipo: "exito" });
             await cargarChats();
         } catch (err) {
             console.error("Error al eliminar chat:", err.message);
-            setToast({ mostrar: true, mensaje: `Error al eliminar chat: ${err.message}`, tipo: "error" });
+            setToast({
+                mostrar: true,
+                mensaje: `Error al eliminar chat: ${err.message}`,
+                tipo: "error",
+            });
         }
-    };*/
-
-    const eliminarChat = async (idChat) => {
-    try {
-        // 1. Primero eliminar todos los mensajes del chat
-        const { error: mensajesError } = await supabase
-            .from("mensajes")
-            .delete()
-            .eq("id_chat", idChat);
-
-        if (mensajesError) throw mensajesError;
-
-        // 2. Luego eliminar el chat
-        const { error: chatError } = await supabase
-            .from("chats")
-            .delete()
-            .eq("id_chat", idChat);
-
-        if (chatError) throw chatError;
-
-        if (chatActivo?.id_chat === idChat) {
-            setChatActivo(null);
-            if (esMovil) setVistaMovil("lista");
-        }
-
-        setToast({ mostrar: true, mensaje: "Chat eliminado exitosamente.", tipo: "exito" });
-        await cargarChats();
-    } catch (err) {
-        console.error("Error al eliminar chat:", err.message);
-        setToast({
-            mostrar: true,
-            mensaje: `Error al eliminar chat: ${err.message}`,
-            tipo: "error",
-        });
-    }
-};
+    };
 
     const seleccionarChat = (chat) => {
         setChatActivo(chat);
@@ -223,7 +275,22 @@ const Mensajes = () => {
         setVistaMovil("lista");
     };
 
-    // 2. Cargar mensajes del chat activo y suscribirse a Realtime
+    // ============================================================
+    // NAVEGAR AL PRODUCTO DEL CHAT
+    // ============================================================
+    const irAlProducto = () => {
+        const idProducto = chatActivo?.productos?.id_producto || chatActivo?.id_producto;
+        if (!idProducto) return;
+
+        if (role === "vendedor" || role === "admin") {
+            // Vendedor: ir a Productos y abrir el modal de edición
+            navigate(`/productos?editar=${idProducto}`);
+        } else {
+            // Comprador: ir al catálogo con el detalle abierto
+            navigate(`/catalogo?producto=${idProducto}`);
+        }
+    };
+
     useEffect(() => {
         if (!chatActivo) {
             setMensajes([]);
@@ -239,7 +306,6 @@ const Mensajes = () => {
 
             if (data) {
                 setMensajes(data);
-                // Marcar como leídos los mensajes que no son míos
                 const mensajesNoLeidos = data.filter(m => m.emisor_id !== miPerfilId && !m.leido);
                 if (mensajesNoLeidos.length > 0) {
                     await supabase
@@ -248,7 +314,6 @@ const Mensajes = () => {
                         .eq("id_chat", chatActivo.id_chat)
                         .neq("emisor_id", miPerfilId);
 
-                    // Reflejar el "leído" también en la lista de chats
                     setChats((anteriores) =>
                         anteriores.map((c) =>
                             c.id_chat === chatActivo.id_chat
@@ -275,18 +340,28 @@ const Mensajes = () => {
                 { event: '*', schema: 'public', table: 'mensajes', filter: `id_chat=eq.${chatActivo.id_chat}` },
                 async (payload) => {
                     if (payload.eventType === 'INSERT') {
-                        setMensajes((prev) => [...prev, payload.new]);
+                        setMensajes((prev) => {
+                            if (prev.some((m) => m.id_mensaje === payload.new.id_mensaje)) {
+                                return prev;
+                            }
+                            return [...prev, payload.new];
+                        });
 
-                        // Reflejar el mensaje nuevo también en la lista de la izquierda
                         setChats((anteriores) =>
                             anteriores.map((c) =>
                                 c.id_chat === payload.new.id_chat
-                                    ? { ...c, mensajes: [...(c.mensajes || []), payload.new] }
+                                    ? {
+                                          ...c,
+                                          mensajes: (c.mensajes || []).some(
+                                              (m) => m.id_mensaje === payload.new.id_mensaje
+                                          )
+                                              ? c.mensajes
+                                              : [...(c.mensajes || []), payload.new]
+                                      }
                                     : c
                             )
                         );
 
-                        // Si el mensaje es del otro, marcarlo como leído automáticamente si el chat está abierto
                         if (payload.new.emisor_id !== miPerfilId) {
                             await supabase
                                 .from("mensajes")
@@ -309,7 +384,7 @@ const Mensajes = () => {
         if (!chatActivo || !textoMensaje.trim() || !miPerfilId) return;
 
         const texto = textoMensaje.trim();
-        setTextoMensaje(""); // Limpiar optimista
+        setTextoMensaje("");
 
         const { error } = await supabase
             .from("mensajes")
@@ -322,9 +397,6 @@ const Mensajes = () => {
         if (error) {
             setToast({ mostrar: true, mensaje: "Error al enviar mensaje.", tipo: "error" });
         } else {
-            // 3. Crear notificación para el receptor
-            // OJO: la columna correcta en public.notificaciones es "perfil_id",
-            // no "usuario_id" (esa columna no existe en la tabla).
             const receptorId = chatActivo.vendedor_id === miPerfilId ? chatActivo.comprador_id : chatActivo.vendedor_id;
             if (receptorId) {
                 const titulo = 'Nuevo mensaje';
@@ -488,10 +560,44 @@ const Mensajes = () => {
                                         <div className="ms-3">
                                             <h6 className="mb-0 fw-bold">{obtenerNombreOtro(chatActivo)}</h6>
                                             <div className="d-flex align-items-center gap-2">
-                                                <small className="text-muted">Producto: {chatActivo.productos?.nombre_producto || "No especificado"}</small>
+                                                <small className="text-muted">
+                                                    {role === "vendedor" ? "Comprador" : "Vendedor"}
+                                                </small>
                                             </div>
                                         </div>
                                     </header>
+
+                                    {/* ==========================================
+                                        CUADRITO DEL PRODUCTO (arriba del chat)
+                                    ========================================== */}
+                                    {chatActivo.productos && (
+                                        <button
+                                            type="button"
+                                            className="msg-producto-contexto"
+                                            onClick={irAlProducto}
+                                            title="Ver detalle del producto"
+                                        >
+                                            <div className="msg-producto-contexto-img">
+                                                {chatActivo.productos.imagen_url?.[0] ? (
+                                                    <img
+                                                        src={chatActivo.productos.imagen_url[0]}
+                                                        alt={chatActivo.productos.nombre_producto}
+                                                    />
+                                                ) : (
+                                                    <i className="bi bi-image" />
+                                                )}
+                                            </div>
+                                            <div className="msg-producto-contexto-info">
+                                                <span className="msg-producto-contexto-label">
+                                                    Conversación iniciada por:
+                                                </span>
+                                                <strong className="msg-producto-contexto-nombre">
+                                                    {chatActivo.productos.nombre_producto}
+                                                </strong>
+                                            </div>
+                                            <i className="bi bi-chevron-right msg-producto-contexto-arrow" />
+                                        </button>
+                                    )}
 
                                     <div className="mensajes-chat-cuerpo" ref={scrollRef}>
                                         {mensajes.map((mensaje) => {

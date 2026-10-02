@@ -844,6 +844,28 @@ const Productos = () => {
     };
   }, [authLoading, user?.id, role]);
 
+  // ============================================================
+  // ABRIR MODAL DE EDICIÓN SI VIENE ?editar=ID EN LA URL
+  // (para cuando se llega desde Mensajes o cualquier enlace externo)
+  // ============================================================
+  useEffect(() => {
+    if (cargando || productos.length === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const idEditar = params.get("editar");
+    if (!idEditar) return;
+
+    const productoEncontrado = productos.find(
+      (p) => String(p.id_producto) === String(idEditar)
+    );
+
+    if (productoEncontrado) {
+      abrirModalEdicion(productoEncontrado);
+      window.history.replaceState({}, "", "/productos");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cargando, productos]);
+
   return (
     <div
       style={{

@@ -17007,3 +17007,110 @@ body:has(.susc-page) .margen-superior-main {
     right: 16px;
   }
 }
+
+/* ============================================================
+   CUADRITO DEL PRODUCTO EN EL CHAT (arriba de la conversación)
+============================================================ */
+
+.msg-producto-contexto {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #f0fafb 0%, #e8f4f8 100%);
+  border: none;
+  border-bottom: 1px solid rgba(13, 92, 99, 0.1);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.msg-producto-contexto:hover {
+  background: linear-gradient(135deg, #e0f4f6 0%, #d8ecf2 100%);
+}
+
+.msg-producto-contexto:active {
+  transform: scale(0.995);
+}
+
+.msg-producto-contexto-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(13, 92, 99, 0.08);
+  color: #cbd5e1;
+  font-size: 1.3rem;
+}
+
+.msg-producto-contexto-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.msg-producto-contexto-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-producto-contexto-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.msg-producto-contexto-nombre {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0d5c63;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg-producto-contexto-arrow {
+  font-size: 1rem;
+  color: #0d5c63;
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.msg-producto-contexto:hover .msg-producto-contexto-arrow {
+  transform: translateX(2px);
+  opacity: 1;
+}
+
+/* Responsive móvil */
+@media (max-width: 767.98px) {
+  .msg-producto-contexto {
+    padding: 8px 12px;
+    gap: 10px;
+  }
+
+  .msg-producto-contexto-img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .msg-producto-contexto-label {
+    font-size: 0.65rem;
+  }
+
+  .msg-producto-contexto-nombre {
+    font-size: 0.85rem;
+  }
+}
