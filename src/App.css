@@ -17114,3 +17114,267 @@ body:has(.susc-page) .margen-superior-main {
     font-size: 0.85rem;
   }
 }
+/* ============================================================
+   MODAL DETALLE PRODUCTO (mdp) — diseño captura móvil
+   ============================================================ */
+
+.modal-detalle-producto-dialog .modal-content {
+  border-radius: 24px !important;
+  background: #f7f3ef !important;
+  border: none !important;
+  overflow: hidden;
+}
+
+.modal-detalle-producto-dialog .modal-body,
+.mdp-body {
+  padding: 0 !important;
+  max-height: min(92vh, 860px);
+  overflow-y: auto;
+}
+
+.mdp-img-wrap {
+  position: relative;
+  background: #f5ebe3;
+  border-radius: 0 0 28px 28px;
+  overflow: hidden;
+  min-height: 280px;
+  padding-bottom: 52px;
+}
+
+.mdp-img-wrap img {
+  width: 100%;
+  height: 280px;
+  object-fit: contain;
+  display: block;
+}
+
+.mdp-close-float {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transform: none !important;
+  padding: 0;
+}
+
+.mdp-close-float:hover {
+  background: #ffffff;
+}
+
+.mdp-img-actions {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mdp-badge-stock {
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+}
+
+.mdp-btn-qr {
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.mdp-btn-qr:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.mdp-btn-share {
+  width: 36px;
+  height: 36px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+
+.mdp-content {
+  padding: 18px 18px 28px;
+}
+
+.mdp-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+.mdp-price {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--color-primario, #0d5c63);
+}
+
+.mdp-price-old {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+  margin-right: 8px;
+}
+
+.mdp-store {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.mdp-store img,
+.mdp-store-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.mdp-store-fallback {
+  background: var(--color-primario, #0d5c63);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mdp-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.mdp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.mdp-chip {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: #fff;
+  color: #374151;
+  min-width: 44px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.mdp-chip.active {
+  border-color: var(--color-primario, #0d5c63);
+  background: #e6f4f6;
+  color: var(--color-primario, #0d5c63);
+}
+
+.mdp-btn-primary {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 14px;
+  font-weight: 700;
+  font-size: 1rem;
+  background: var(--color-primario, #0d5c63);
+  color: #fff;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.mdp-btn-primary:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.mdp-review-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px;
+  margin-top: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.mdp-review-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mdp-review-item:last-child {
+  border-bottom: none;
+}
+
+.mdp-review-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+/* Modal QR limpio */
+.mdp-qr-overlay .modal-content {
+  border-radius: 20px !important;
+  border: none !important;
+  background: #fff !important;
+  max-width: 320px;
+  margin: auto;
+}
+
+@media (max-width: 576px) {
+  .modal-detalle-producto-dialog {
+    margin: 0.5rem;
+  }
+
+  .mdp-img-wrap img {
+    height: 260px;
+  }
+}

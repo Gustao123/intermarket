@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import {
-  Modal,
-  Button,
-  Row,
-  Col,
-  Badge,
-  Form,
-  Spinner,
-  Card,
-  Carousel,
-} from "react-bootstrap";
+import { Modal, Button, Form, Spinner, Carousel } from "react-bootstrap";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../database/supabaseconfig";
 import { useAuth } from "../../context/AuthContext";
@@ -19,23 +9,15 @@ const TIEMPO_LIMITE_MS = 6000;
 
 const consultaSegura = async (consulta, valorPorDefecto = null, ms = TIEMPO_LIMITE_MS) => {
   let temporizador;
-
   try {
     const timeout = new Promise((resolve) => {
       temporizador = setTimeout(() => {
-        resolve({
-          data: valorPorDefecto,
-          error: { message: "tiempo_agotado" },
-        });
+        resolve({ data: valorPorDefecto, error: { message: "tiempo_agotado" } });
       }, ms);
     });
-
     return await Promise.race([Promise.resolve(consulta), timeout]);
   } catch (error) {
-    return {
-      data: valorPorDefecto,
-      error,
-    };
+    return { data: valorPorDefecto, error };
   } finally {
     clearTimeout(temporizador);
   }
@@ -46,11 +28,9 @@ const DURACION_CACHE_MS = 2 * 60 * 1000;
 
 const obtenerTiendaInicial = (producto) => {
   if (!producto?.id_tienda) return null;
-
   const tiendaRelacion = Array.isArray(producto?.tiendas)
     ? producto.tiendas[0]
     : producto?.tiendas;
-
   return {
     id_tienda: producto.id_tienda,
     nombre_tienda:
@@ -63,13 +43,8 @@ const obtenerVendedorInicial = (producto) => {
   const tiendaRelacion = Array.isArray(producto?.tiendas)
     ? producto.tiendas[0]
     : producto?.tiendas;
-
   const perfiles = tiendaRelacion?.perfiles;
-
-  if (Array.isArray(perfiles)) {
-    return perfiles[0] || null;
-  }
-
+  if (Array.isArray(perfiles)) return perfiles[0] || null;
   return perfiles || null;
 };
 
@@ -107,26 +82,20 @@ const ModalDetalleProducto = ({
     comentario: "",
   });
 
-  // QR / compartir
   const [mostrarQR, setMostrarQR] = useState(false);
   const [enlaceCopiado, setEnlaceCopiado] = useState(false);
 
   const idProducto = producto?.id_producto;
 
-  // Enlace ÚNICO por producto
   const enlaceProducto = useMemo(() => {
-  if (!idProducto) return "";
-
-  // Mientras desarrollas: pon la IP de tu PC en la WiFi
-  const origenDev = "http://192.168.1.25:5173"; // ← cámbiala por la tuya
-
-  const origen =
-    typeof window !== "undefined" && window.location.hostname !== "localhost"
-      ? window.location.origin
-      : origenDev;
-
-  return `${origen}/catalogo?producto=${idProducto}`;
-}, [idProducto]);
+    if (!idProducto) return "";
+    const origenDev = "http://192.168.1.25:5173";
+    const origen =
+      typeof window !== "undefined" && window.location.hostname !== "localhost"
+        ? window.location.origin
+        : origenDev;
+    return `${origen}/catalogo?producto=${idProducto}`;
+  }, [idProducto]);
 
   const copiarEnlace = async () => {
     if (!enlaceProducto) return;
@@ -144,7 +113,6 @@ const ModalDetalleProducto = ({
       productoDetalle?.nombre_producto ||
       producto?.nombre_producto ||
       "Producto";
-
     if (navigator.share) {
       try {
         await navigator.share({
@@ -153,7 +121,7 @@ const ModalDetalleProducto = ({
           url: enlaceProducto,
         });
       } catch {
-        // usuario canceló
+        // canceló
       }
     } else {
       await copiarEnlace();
@@ -172,7 +140,6 @@ const ModalDetalleProducto = ({
     setErrorCarga(false);
     setMostrarQR(false);
     setEnlaceCopiado(false);
-
     setTienda(obtenerTiendaInicial(producto));
     setVendedor(obtenerVendedorInicial(producto));
     setPerfilUsuario(null);
@@ -182,7 +149,6 @@ const ModalDetalleProducto = ({
     setComprado(false);
 
     const cache = cacheDetalles.get(producto.id_producto);
-
     if (cache && Date.now() - cache.guardadoEn < DURACION_CACHE_MS) {
       setProductoDetalle(cache.productoDetalle || producto);
       setTienda(cache.tienda || null);
@@ -191,7 +157,6 @@ const ModalDetalleProducto = ({
       setCalificacionesTienda(cache.calificacionesTienda || []);
       setCargando(false);
     }
-
     cargarDetalles(Boolean(cache));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mostrar, producto?.id_producto, user?.id]);
@@ -208,17 +173,11 @@ const ModalDetalleProducto = ({
       ) {
         return;
       }
-
       const ahora = Date.now();
       if (ahora - ultimoReintentoRef.current < 800) return;
       ultimoReintentoRef.current = ahora;
-
-      if (reintentoTimerRef.current) {
-        clearTimeout(reintentoTimerRef.current);
-      }
-
+      if (reintentoTimerRef.current) clearTimeout(reintentoTimerRef.current);
       setErrorCarga(false);
-
       reintentoTimerRef.current = setTimeout(() => {
         if (
           mostrar &&
@@ -234,9 +193,7 @@ const ModalDetalleProducto = ({
       if (document.visibilityState === "hidden") {
         idCargaActualRef.current += 1;
         setCargando(false);
-        if (reintentoTimerRef.current) {
-          clearTimeout(reintentoTimerRef.current);
-        }
+        if (reintentoTimerRef.current) clearTimeout(reintentoTimerRef.current);
         return;
       }
       programarReintento();
@@ -244,13 +201,10 @@ const ModalDetalleProducto = ({
 
     document.addEventListener("visibilitychange", alCambiarVisibilidad);
     window.addEventListener("focus", programarReintento);
-
     return () => {
       document.removeEventListener("visibilitychange", alCambiarVisibilidad);
       window.removeEventListener("focus", programarReintento);
-      if (reintentoTimerRef.current) {
-        clearTimeout(reintentoTimerRef.current);
-      }
+      if (reintentoTimerRef.current) clearTimeout(reintentoTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mostrar, producto?.id_producto, user?.id]);
@@ -389,10 +343,7 @@ const ModalDetalleProducto = ({
         });
       }
 
-      if (productoResultado?.error && !detalleFinal) {
-        setErrorCarga(true);
-      }
-
+      if (productoResultado?.error && !detalleFinal) setErrorCarga(true);
       if (!miPerfil?.perfil_id) {
         setComprado(false);
         return;
@@ -411,13 +362,10 @@ const ModalDetalleProducto = ({
       );
 
       if (!esCargaVigente()) return;
-
       if (pedidosResultado?.error) {
-        console.warn("No se pudo verificar la compra:", pedidosResultado.error);
         setComprado(false);
         return;
       }
-
       const pedidos = pedidosResultado?.data || [];
       setComprado(Array.isArray(pedidos) && pedidos.length > 0);
     } catch (error) {
@@ -431,12 +379,12 @@ const ModalDetalleProducto = ({
   const enviarResenaProducto = async (e) => {
     e.preventDefault();
     if (!nuevaResena.comentario.trim()) return;
-
     if (!perfilUsuario?.perfil_id) {
-      alert("No se pudo identificar tu perfil de usuario. Intenta recargar la página.");
+      alert(
+        "No se pudo identificar tu perfil de usuario. Intenta recargar la página."
+      );
       return;
     }
-
     try {
       const { error } = await supabase.from("reseñas_productos").insert([
         {
@@ -446,7 +394,6 @@ const ModalDetalleProducto = ({
           comentario: nuevaResena.comentario,
         },
       ]);
-
       if (error) {
         if (error.code === "23505") {
           alert("Ya has dejado una reseña para este producto.");
@@ -455,12 +402,13 @@ const ModalDetalleProducto = ({
         }
         return;
       }
-
       setNuevaResena({ calificacion: 5, comentario: "" });
       cargarDetalles();
     } catch (error) {
       console.error("Error al enviar reseña:", error);
-      alert("Error al enviar la reseña: " + (error.message || "Error desconocido"));
+      alert(
+        "Error al enviar la reseña: " + (error.message || "Error desconocido")
+      );
     }
   };
 
@@ -486,7 +434,7 @@ const ModalDetalleProducto = ({
   };
 
   const Estrellas = ({ valor }) => (
-    <span className="text-warning">
+    <span style={{ color: "#f59e0b" }}>
       {[1, 2, 3, 4, 5].map((s) => (
         <i key={s} className={`bi bi-star${s <= valor ? "-fill" : ""}`}></i>
       ))}
@@ -496,11 +444,12 @@ const ModalDetalleProducto = ({
   const EstrellasInteractivas = ({ valor, setValor }) => {
     const [hover, setHover] = useState(0);
     return (
-      <div className="mb-2" style={{ cursor: "pointer", fontSize: "1.5rem" }}>
+      <div className="mb-2" style={{ cursor: "pointer", fontSize: "1.35rem" }}>
         {[1, 2, 3, 4, 5].map((s) => (
           <i
             key={s}
-            className={`bi bi-star${s <= (hover || valor) ? "-fill" : ""} text-warning me-1`}
+            className={`bi bi-star${s <= (hover || valor) ? "-fill" : ""} me-1`}
+            style={{ color: "#f59e0b" }}
             onMouseEnter={() => setHover(s)}
             onMouseLeave={() => setHover(0)}
             onClick={() => setValor(s)}
@@ -542,496 +491,418 @@ const ModalDetalleProducto = ({
 
   const tallas = asegurarArray(productoDetalle?.tallas);
   const colores = asegurarArray(productoDetalle?.colores);
+  const stock = productoDetalle?.stock ?? producto.stock;
+  const precioVenta = parseFloat(
+    productoDetalle?.precio_venta || producto.precio_venta || 0
+  );
+  const precioOriginal = parseFloat(
+    productoDetalle?.precio_original || producto.precio_original || 0
+  );
+  const tieneOferta = precioOriginal > precioVenta && precioOriginal > 0;
+  const puedeComprar =
+    !esMiProducto &&
+    stock !== 0 &&
+    !(tallas.length > 0 && !tallaSeleccionada) &&
+    !(colores.length > 0 && !colorSeleccionado);
+
+  const chipBase = {
+    border: "1.5px solid #e5e7eb",
+    borderRadius: 999,
+    padding: "8px 14px",
+    fontSize: "0.82rem",
+    fontWeight: 600,
+    background: "#fff",
+    color: "#374151",
+    minWidth: 44,
+    transition: "all 0.15s ease",
+  };
+
+  const chipActivo = {
+    ...chipBase,
+    borderColor: "#0d5c63",
+    background: "#e6f4f6",
+    color: "#0d5c63",
+  };
+
+  const nombreTienda =
+    tienda?.nombre_tienda ||
+    productoDetalle?.tiendas?.nombre_tienda ||
+    producto?.tiendas?.nombre_tienda ||
+    "Tienda";
 
   return (
     <>
-      <Modal show={mostrar} onHide={() => setMostrar(false)} size="lg" centered>
-        <Modal.Header
-          closeButton
-          className="border-0"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-primario) 0%, #1a7a8a 100%)",
-            padding: "0.65rem 1.25rem",
-          }}
-        >
-          <Modal.Title
-            className="fw-bold text-white d-flex align-items-center gap-2"
-            style={{ fontSize: "1rem" }}
-          >
-            <i className="bi bi-bag-heart"></i>
-            Detalles del Producto
-          </Modal.Title>
-        </Modal.Header>
+      <Modal
+        show={mostrar}
+        onHide={() => setMostrar(false)}
+        size="lg"
+        centered
+        contentClassName="border-0 overflow-hidden"
+        dialogClassName="modal-detalle-producto-dialog"
+      >
+        <div className="mdp-body position-relative">
+          {/* ========== IMAGEN ========== */}
+          <div className="mdp-img-wrap">
+            <button
+              type="button"
+              className="mdp-close-float"
+              onClick={() => setMostrar(false)}
+              aria-label="Cerrar"
+            >
+              <i className="bi bi-arrow-left"></i>
+            </button>
 
-        <Modal.Body>
-          {cargando && (
-            <div className="d-flex align-items-center justify-content-center gap-2 text-muted small mb-3">
-              <Spinner animation="border" variant="primary" size="sm" />
-              <span>Actualizando información del producto...</span>
-            </div>
-          )}
-
-          {errorCarga && (
-            <div className="alert alert-warning d-flex align-items-center justify-content-between gap-3 py-2">
-              <span className="small">
-                <i className="bi bi-wifi-off me-2"></i>
-                Algunos datos adicionales no pudieron actualizarse.
-              </span>
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={() => cargarDetalles(false)}
+            {producto.imagen_url && producto.imagen_url.length > 1 ? (
+              <Carousel
+                variant="dark"
+                interval={3000}
+                pause="hover"
+                indicators={false}
               >
-                <i className="bi bi-arrow-clockwise me-1"></i>
-                Reintentar
-              </Button>
-            </div>
-          )}
-
-          <Row>
-            <Col md={5}>
+                {producto.imagen_url.map((url, idx) => (
+                  <Carousel.Item key={idx}>
+                    <img
+                      src={url}
+                      alt={`${producto.nombre_producto} ${idx + 1}`}
+                    />
+                  </Carousel.Item>
+                ))}
+              </Carousel>
+            ) : producto.imagen_url?.[0] ? (
+              <img
+                src={producto.imagen_url[0]}
+                alt={producto.nombre_producto}
+              />
+            ) : (
               <div
-                className="mb-4 text-center rounded overflow-hidden shadow-sm"
-                style={{ height: "250px", backgroundColor: "#f8f9fa" }}
+                className="d-flex align-items-center justify-content-center"
+                style={{ height: 280, color: "#94a3b8" }}
               >
-                {producto.imagen_url && producto.imagen_url.length > 1 ? (
-                  <Carousel
-                    variant="dark"
-                    style={{ height: "100%" }}
-                    interval={3000}
-                    pause="hover"
-                  >
-                    {producto.imagen_url.map((url, idx) => (
-                      <Carousel.Item key={idx} style={{ height: "250px" }}>
-                        <img
-                          src={url}
-                          alt={`${producto.nombre_producto} ${idx + 1}`}
-                          className="d-block w-100 h-100"
-                          style={{ objectFit: "contain" }}
-                        />
-                      </Carousel.Item>
-                    ))}
-                  </Carousel>
-                ) : producto.imagen_url && producto.imagen_url.length === 1 ? (
-                  <img
-                    src={producto.imagen_url[0]}
-                    alt={producto.nombre_producto}
-                    className="img-fluid h-100"
-                    style={{ objectFit: "contain" }}
-                  />
-                ) : (
-                  <i
-                    className="bi bi-image text-muted d-flex justify-content-center align-items-center h-100"
-                    style={{ fontSize: "4rem" }}
-                  ></i>
-                )}
+                <i className="bi bi-image" style={{ fontSize: "3rem" }}></i>
               </div>
+            )}
 
-              {tienda && (
-                <Card className="border-0 shadow-sm mb-4">
-                  <Card.Body>
-                    <h6 className="fw-bold text-uppercase text-muted mb-2 small">
-                      Vendido por:
-                    </h6>
-                    <div
-                      className="d-flex align-items-center mb-2 p-2 rounded-3 store-link-hover"
-                      style={{ cursor: "pointer", transition: "background 0.2s" }}
-                      onClick={() => setMostrarModalTienda(true)}
-                      title="Ver tienda completa"
-                    >
-                      {tienda.imagen_url ? (
-                        <img
-                          src={tienda.imagen_url}
-                          alt="Logo"
-                          className="rounded-circle me-2 shadow-sm"
-                          style={{
-                            width: "44px",
-                            height: "44px",
-                            objectFit: "cover",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-2 shadow-sm"
-                          style={{ width: "44px", height: "44px" }}
-                        >
-                          <i className="bi bi-shop"></i>
-                        </div>
-                      )}
-                      <div className="flex-grow-1">
-                        <h6 className="mb-0 fw-bold text-primary d-flex align-items-center gap-1">
-                          {tienda.nombre_tienda}
-                          <i
-                            className="bi bi-chevron-right text-muted"
-                            style={{ fontSize: "0.75rem" }}
-                          ></i>
-                        </h6>
-                        <small className="text-muted">
-                          {vendedor?.usuarios?.username ||
-                            vendedor?.username ||
-                            "Vendedor"}
-                        </small>
-                      </div>
-                      <span
-                        className="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2"
-                        style={{ fontSize: "0.7rem" }}
-                      >
-                        Ver tienda
-                      </span>
-                    </div>
-
-                    <div className="mb-2">
-                      <small className="me-2">Reputación:</small>
-                      <PromedioEstrellas
-                        datos={calificacionesTienda}
-                        campo="puntuacion"
-                      />
-                    </div>
-
-                    {user && !esMiProducto && (
-                      <div className="mt-3 pt-3 border-top">
-                        <h6 className="small fw-bold">Calificar Tienda</h6>
-                        <Form onSubmit={enviarCalificacionTienda}>
-                          <EstrellasInteractivas
-                            valor={nuevaCalificacionTienda.puntuacion}
-                            setValor={(val) =>
-                              setNuevaCalificacionTienda({
-                                ...nuevaCalificacionTienda,
-                                puntuacion: val,
-                              })
-                            }
-                          />
-                          <Form.Control
-                            size="sm"
-                            as="textarea"
-                            placeholder="Opinión sobre la tienda..."
-                            className="mb-2"
-                            value={nuevaCalificacionTienda.comentario}
-                            onChange={(e) =>
-                              setNuevaCalificacionTienda({
-                                ...nuevaCalificacionTienda,
-                                comentario: e.target.value,
-                              })
-                            }
-                          />
-                          <Button
-                            type="submit"
-                            variant="outline-primary"
-                            size="sm"
-                            className="w-100"
-                          >
-                            Enviar calificación
-                          </Button>
-                        </Form>
-                      </div>
-                    )}
-                  </Card.Body>
-                </Card>
-              )}
-            </Col>
-
-            <Col md={7}>
-              <h3 className="fw-bold mb-2">
-                {productoDetalle?.nombre_producto || producto.nombre_producto}
-              </h3>
-              <Badge bg="info" className="mb-3">
-                {productoDetalle?.categorias?.nombre_categoria ||
-                  producto.categorias?.nombre_categoria ||
-                  "Categoría"}
-              </Badge>
-
-              <div className="mb-4">
-                {(productoDetalle?.precio_original || producto.precio_original) >
-                  (productoDetalle?.precio_venta || producto.precio_venta) && (
-                  <span className="text-decoration-line-through text-muted me-2 fs-5">
-                    C$
-                    {parseFloat(
-                      productoDetalle?.precio_original || producto.precio_original
-                    ).toFixed(2)}
-                  </span>
-                )}
-                <span className="fs-2 fw-bold text-success">
-                  C$
-                  {parseFloat(
-                    productoDetalle?.precio_venta || producto.precio_venta
-                  ).toFixed(2)}
+            <div className="mdp-img-actions">
+              {stock !== undefined && stock !== null ? (
+                <span className="mdp-badge-stock">
+                  {stock === 0
+                    ? "Sin stock"
+                    : stock <= 5
+                    ? `¡Quedan ${stock}!`
+                    : `${stock} en stock`}
                 </span>
-
-                {(productoDetalle?.stock !== undefined ||
-                  producto.stock !== undefined) && (
-                  <div className="mt-2">
-                    {(productoDetalle?.stock ?? producto.stock) === 0 ? (
-                      <span className="badge bg-danger rounded-pill px-3 py-2">
-                        <i className="bi bi-x-circle me-1"></i>Sin stock
-                      </span>
-                    ) : (productoDetalle?.stock ?? producto.stock) <= 5 ? (
-                      <span className="badge bg-warning text-dark rounded-pill px-3 py-2">
-                        <i className="bi bi-exclamation-triangle me-1"></i>
-                        ¡Quedan solo {productoDetalle?.stock ?? producto.stock}!
-                      </span>
-                    ) : (
-                      <span className="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2">
-                        <i className="bi bi-check-circle me-1"></i>
-                        {productoDetalle?.stock ?? producto.stock} en stock
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <p className="text-secondary mb-4">
-                {productoDetalle?.descripcion ||
-                  producto.descripcion ||
-                  "Sin descripción detallada."}
-              </p>
-
-              {(tallas.length > 0 || colores.length > 0) && (
-                <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border">
-                  <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i className="bi bi-sliders2 text-primary"></i>
-                    Personaliza tu pedido
-                  </h6>
-
-                  {tallas.length > 0 && (
-                    <div className="mb-3">
-                      <label className="fw-bold small text-uppercase text-muted mb-2 d-block">
-                        Talla:
-                      </label>
-                      <div className="d-flex flex-wrap gap-2">
-                        {tallas.map((talla) => (
-                          <Button
-                            key={talla}
-                            variant={
-                              tallaSeleccionada === talla
-                                ? "primary"
-                                : "outline-light"
-                            }
-                            size="sm"
-                            className={`rounded-3 px-3 py-2 fw-bold ${
-                              tallaSeleccionada === talla
-                                ? "shadow-sm"
-                                : "text-dark border-secondary border-opacity-25"
-                            }`}
-                            onClick={() => setTallaSeleccionada(talla)}
-                            style={{ minWidth: "45px" }}
-                          >
-                            {talla}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {colores.length > 0 && (
-                    <div>
-                      <label className="fw-bold small text-uppercase text-muted mb-2 d-block">
-                        Color:
-                      </label>
-                      <div className="d-flex flex-wrap gap-2">
-                        {colores.map((color) => (
-                          <Button
-                            key={color}
-                            variant={
-                              colorSeleccionado === color
-                                ? "primary"
-                                : "outline-light"
-                            }
-                            size="sm"
-                            className={`rounded-3 px-3 py-2 fw-bold ${
-                              colorSeleccionado === color
-                                ? "shadow-sm"
-                                : "text-dark border-secondary border-opacity-25"
-                            }`}
-                            onClick={() => setColorSeleccionado(color)}
-                          >
-                            {color}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {!tallaSeleccionada && tallas.length > 0 && (
-                    <small className="text-danger d-block mt-2">
-                      * Por favor elige una talla
-                    </small>
-                  )}
-                  {!colorSeleccionado && colores.length > 0 && (
-                    <small className="text-danger d-block mt-1">
-                      * Por favor elige un color
-                    </small>
-                  )}
-                </div>
-              )}
-
-              {esMiProducto ? (
-                <div className="alert alert-warning border-0 shadow-sm rounded-4 d-flex align-items-center mb-4">
-                  <i className="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
-                  <div>
-                    <strong className="d-block">¡Aviso de Propietario!</strong>
-                    Este producto pertenece a tu tienda. No puedes comprar tus
-                    propios productos.
-                  </div>
-                </div>
-              ) : (productoDetalle?.stock ?? producto.stock) === 0 ? (
-                <div className="alert alert-danger border-0 shadow-sm rounded-4 d-flex align-items-center mb-4">
-                  <i className="bi bi-x-circle-fill fs-4 me-3"></i>
-                  <div>
-                    <strong className="d-block">Producto Agotado</strong>
-                    Este producto no tiene unidades disponibles en este momento.
-                  </div>
-                </div>
               ) : (
-                <div className="d-flex flex-column gap-2 mb-3">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-100 rounded-pill fw-bold shadow-sm"
-                    style={{
-                      backgroundColor:
-                        (tallas.length > 0 && !tallaSeleccionada) ||
-                        (colores.length > 0 && !colorSeleccionado)
-                          ? "#ccc"
-                          : "var(--color-primario)",
-                      borderColor:
-                        (tallas.length > 0 && !tallaSeleccionada) ||
-                        (colores.length > 0 && !colorSeleccionado)
-                          ? "#ccc"
-                          : "var(--color-primario)",
-                      cursor:
-                        (tallas.length > 0 && !tallaSeleccionada) ||
-                        (colores.length > 0 && !colorSeleccionado)
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                    disabled={
-                      (tallas.length > 0 && !tallaSeleccionada) ||
-                      (colores.length > 0 && !colorSeleccionado)
-                    }
-                    onClick={() => {
-                      agregarAlCarrito({
-                        ...(productoDetalle || producto),
-                        talla_seleccionada: tallaSeleccionada,
-                        color_seleccionado: colorSeleccionado,
-                      });
-                      setMostrar(false);
-                    }}
-                  >
-                    <i className="bi bi-cart-plus me-2"></i> Añadir al Carrito
-                  </Button>
-
-                  {((tallas.length > 0 && !tallaSeleccionada) ||
-                    (colores.length > 0 && !colorSeleccionado)) && (
-                    <div className="text-center">
-                      <small className="text-danger fw-bold">
-                        <i className="bi bi-info-circle me-1"></i>
-                        Selecciona{" "}
-                        {tallas.length > 0 && !tallaSeleccionada ? "talla" : ""}
-                        {tallas.length > 0 &&
-                        !tallaSeleccionada &&
-                        colores.length > 0 &&
-                        !colorSeleccionado
-                          ? " y "
-                          : ""}
-                        {colores.length > 0 && !colorSeleccionado
-                          ? "color"
-                          : ""}{" "}
-                        para continuar
-                      </small>
-                    </div>
-                  )}
-                </div>
+                <span />
               )}
 
-              {/* ========== QR ÚNICO POR PRODUCTO ========== */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="mdp-btn-qr"
+                  onClick={() => setMostrarQR(true)}
+                >
+                  Ver QR
+                </button>
+                <button
+                  type="button"
+                  className="mdp-btn-qr mdp-btn-share"
+                  onClick={compartirProducto}
+                  aria-label="Compartir"
+                  title="Compartir"
+                >
+                  <i className="bi bi-share"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ========== CONTENIDO ========== */}
+          <div className="mdp-content">
+            {cargando && (
+              <div className="d-flex align-items-center gap-2 text-muted small mb-2">
+                <Spinner animation="border" size="sm" />
+                Actualizando...
+              </div>
+            )}
+
+            {errorCarga && (
+              <div className="alert alert-warning py-2 small d-flex justify-content-between align-items-center">
+                <span>Algunos datos no se actualizaron.</span>
+                <Button
+                  size="sm"
+                  variant="outline-primary"
+                  onClick={() => cargarDetalles(false)}
+                >
+                  Reintentar
+                </Button>
+              </div>
+            )}
+
+            <h2 className="mdp-title">
+              {productoDetalle?.nombre_producto || producto.nombre_producto}
+            </h2>
+
+            <div className="mb-1">
+              {tieneOferta && (
+                <span className="mdp-price-old">
+                  C$ {precioOriginal.toFixed(2)}
+                </span>
+              )}
+              <span className="mdp-price">C$ {precioVenta.toFixed(2)}</span>
+            </div>
+
+            {/* ===== TIENDA (diseño corregido) ===== */}
+            {tienda && (
               <div
-                className="mb-4 p-3 rounded-4 border"
                 style={{
-                  backgroundColor: "#f0f7fa",
-                  borderColor: "#e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  background: "#ffffff",
+                  borderRadius: 16,
+                  padding: "12px 14px",
+                  margin: "14px 0",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                  width: "100%",
                 }}
               >
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <h6
-                    className="fw-bold mb-0"
-                    style={{ color: "#0d5c63" }}
-                  >
-                    <i className="bi bi-qr-code me-2"></i>
-                    Compartir producto
-                  </h6>
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    className="rounded-pill"
-                    onClick={() => setMostrarQR((v) => !v)}
-                  >
-                    {mostrarQR ? "Ocultar QR" : "Ver QR"}
-                  </Button>
-                </div>
-
-                <p className="small text-muted mb-2">
-                  Cada producto tiene su propio código QR y enlace.
-                </p>
-
-                <div className="d-flex flex-wrap gap-2 mb-2">
-                  <Button
-                    size="sm"
-                    className="rounded-pill border-0"
-                    style={{ backgroundColor: "#0d5c63", color: "#fff" }}
-                    onClick={compartirProducto}
-                  >
-                    <i className="bi bi-share me-1"></i>
-                    Compartir
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline-secondary"
-                    className="rounded-pill"
-                    onClick={copiarEnlace}
-                  >
-                    <i
-                      className={`bi bi-${
-                        enlaceCopiado ? "check2" : "link-45deg"
-                      } me-1`}
-                    ></i>
-                    {enlaceCopiado ? "¡Copiado!" : "Copiar enlace"}
-                  </Button>
-                </div>
-
-                {mostrarQR && enlaceProducto && (
-                  <div className="text-center mt-3 p-3 bg-white rounded-4 shadow-sm">
-                    <QRCodeSVG
-                      value={enlaceProducto}
-                      size={180}
-                      level="M"
-                      includeMargin
-                      bgColor="#ffffff"
-                      fgColor="#0d5c63"
+                <div
+                  onClick={() => setMostrarModalTienda(true)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    cursor: "pointer",
+                  }}
+                >
+                  {tienda.imagen_url ? (
+                    <img
+                      src={tienda.imagen_url}
+                      alt=""
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
                     />
-                    <div className="small text-muted mt-2 text-break px-2">
-                      {enlaceProducto}
+                  ) : (
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: "50%",
+                        background: "#0d5c63",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        fontSize: "1rem",
+                      }}
+                    >
+                      <i className="bi bi-shop"></i>
                     </div>
-                    <small className="text-muted d-block mt-1">
-                      ID producto: {idProducto}
-                    </small>
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontSize: "0.72rem",
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      Vendido por
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.95rem",
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {nombreTienda}
+                    </div>
                   </div>
-                )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarModalTienda(true)}
+                  style={{
+                    flex: "0 0 auto",
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "8px 14px",
+                    background: "#0d5c63",
+                    color: "#fff",
+                    fontWeight: 600,
+                    fontSize: "0.8rem",
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                    width: "auto",
+                    maxWidth: "none",
+                  }}
+                >
+                  Ver tienda
+                </button>
+              </div>
+            )}
+
+            {tallas.length > 0 && (
+              <div>
+                <div className="mdp-label">Talla</div>
+                <div className="mdp-chips">
+                  {tallas.map((talla) => (
+                    <button
+                      key={talla}
+                      type="button"
+                      style={
+                        tallaSeleccionada === talla ? chipActivo : chipBase
+                      }
+                      onClick={() => setTallaSeleccionada(talla)}
+                    >
+                      {talla}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {colores.length > 0 && (
+              <div>
+                <div className="mdp-label">Color</div>
+                <div className="mdp-chips">
+                  {colores.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      style={
+                        colorSeleccionado === color ? chipActivo : chipBase
+                      }
+                      onClick={() => setColorSeleccionado(color)}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {((tallas.length > 0 && !tallaSeleccionada) ||
+              (colores.length > 0 && !colorSeleccionado)) && (
+              <small className="text-danger d-block mb-2">
+                * Selecciona{" "}
+                {tallas.length > 0 && !tallaSeleccionada ? "talla" : ""}
+                {tallas.length > 0 &&
+                !tallaSeleccionada &&
+                colores.length > 0 &&
+                !colorSeleccionado
+                  ? " y "
+                  : ""}
+                {colores.length > 0 && !colorSeleccionado ? "color" : ""}
+              </small>
+            )}
+
+            {(productoDetalle?.descripcion || producto.descripcion) && (
+              <p
+                className="text-secondary small mb-3"
+                style={{ lineHeight: 1.45 }}
+              >
+                {productoDetalle?.descripcion || producto.descripcion}
+              </p>
+            )}
+
+            {esMiProducto ? (
+              <div className="alert alert-warning border-0 rounded-4 small mb-3">
+                Este producto es de tu tienda. No puedes comprarlo.
+              </div>
+            ) : stock === 0 ? (
+              <div className="alert alert-danger border-0 rounded-4 small mb-3">
+                Producto agotado.
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="mdp-btn-primary"
+                disabled={!puedeComprar}
+                onClick={() => {
+                  agregarAlCarrito({
+                    ...(productoDetalle || producto),
+                    talla_seleccionada: tallaSeleccionada,
+                    color_seleccionado: colorSeleccionado,
+                  });
+                  setMostrar(false);
+                }}
+              >
+                <i className="bi bi-cart-plus me-2"></i>
+                Añadir al carrito
+              </button>
+            )}
+
+            {user && !esMiProducto && tienda && (
+              <div className="mdp-review-box mb-3">
+                <div className="mdp-label mb-1">Calificar tienda</div>
+                <div className="mb-1">
+                  <small className="text-muted me-2">Reputación:</small>
+                  <PromedioEstrellas
+                    datos={calificacionesTienda}
+                    campo="puntuacion"
+                  />
+                </div>
+                <Form onSubmit={enviarCalificacionTienda}>
+                  <EstrellasInteractivas
+                    valor={nuevaCalificacionTienda.puntuacion}
+                    setValor={(val) =>
+                      setNuevaCalificacionTienda({
+                        ...nuevaCalificacionTienda,
+                        puntuacion: val,
+                      })
+                    }
+                  />
+                  <Form.Control
+                    size="sm"
+                    as="textarea"
+                    rows={2}
+                    placeholder="Opinión sobre la tienda..."
+                    className="mb-2 rounded-3"
+                    value={nuevaCalificacionTienda.comentario}
+                    onChange={(e) =>
+                      setNuevaCalificacionTienda({
+                        ...nuevaCalificacionTienda,
+                        comentario: e.target.value,
+                      })
+                    }
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="w-100 rounded-pill border-0"
+                    style={{ background: "#0d5c63" }}
+                  >
+                    Enviar calificación
+                  </Button>
+                </Form>
+              </div>
+            )}
+
+            <div className="mdp-review-box">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <strong style={{ color: "#0f172a" }}>
+                  Reseña del producto
+                </strong>
+                <PromedioEstrellas datos={resenas} campo="calificacion" />
               </div>
 
-              <hr />
-
-              <h5 className="fw-bold mb-3">
-                Reseñas del Producto{" "}
-                <PromedioEstrellas datos={resenas} campo="calificacion" />
-              </h5>
-
               {user && !esMiProducto ? (
-                <Form
-                  onSubmit={enviarResenaProducto}
-                  className="mb-4 bg-light p-3 rounded"
-                >
-                  <h6 className="fw-bold mb-2">Dejar una reseña</h6>
+                <Form onSubmit={enviarResenaProducto} className="mb-3">
                   <EstrellasInteractivas
                     valor={nuevaResena.calificacion}
                     setValor={(val) =>
@@ -1041,8 +912,12 @@ const ModalDetalleProducto = ({
                   <Form.Control
                     as="textarea"
                     rows={2}
-                    placeholder="¿Qué te pareció este producto?"
-                    className="mb-2"
+                    placeholder="Deja un comentario"
+                    className="mb-2 rounded-3"
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                    }}
                     value={nuevaResena.comentario}
                     onChange={(e) =>
                       setNuevaResena({
@@ -1051,57 +926,94 @@ const ModalDetalleProducto = ({
                       })
                     }
                   />
-                  <div className="text-end">
-                    <Button type="submit" variant="primary" size="sm">
-                      Comentar
-                    </Button>
-                  </div>
+                  <Button
+                    type="submit"
+                    className="w-100 rounded-pill border-0 fw-semibold"
+                    style={{ background: "#0d5c63", padding: "10px" }}
+                  >
+                    Comentar
+                  </Button>
                 </Form>
               ) : !user ? (
-                <div className="alert alert-secondary small py-2">
-                  <i className="bi bi-info-circle me-2"></i>
+                <div className="small text-muted mb-2">
                   Inicia sesión para dejar una reseña.
                 </div>
               ) : null}
 
-              <div
-                className="list-group list-group-flush"
-                style={{
-                  maxHeight: "260px",
-                  overflowY: "auto",
-                  overflowX: "hidden",
-                }}
-              >
+              <div style={{ maxHeight: 220, overflowY: "auto" }}>
                 {resenas.length > 0 ? (
                   resenas.map((resena) => (
-                    <div
-                      key={resena.id_resena}
-                      className="list-group-item px-0 py-3"
-                    >
-                      <div className="d-flex justify-content-between align-items-center mb-1">
-                        <h6 className="fw-bold mb-0">
-                          <i className="bi bi-person-circle me-2 text-muted"></i>
-                          {resena.perfiles?.usuarios?.username ||
-                            "Usuario Anónimo"}
-                        </h6>
-                        <Estrellas valor={resena.calificacion} />
+                    <div key={resena.id_resena} className="mdp-review-item">
+                      <div className="mdp-review-avatar">
+                        <i className="bi bi-person"></i>
                       </div>
-                      <p className="text-muted mb-0 small">
-                        {resena.comentario}
-                      </p>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="d-flex justify-content-between gap-2">
+                          <strong className="small text-truncate">
+                            {resena.perfiles?.usuarios?.username || "Usuario"}
+                          </strong>
+                          <Estrellas valor={resena.calificacion} />
+                        </div>
+                        <p className="small text-muted mb-0 mt-1">
+                          {resena.comentario}
+                        </p>
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-muted text-center py-3">
-                    Aún no hay reseñas para este producto.
+                  <p className="text-muted small text-center py-2 mb-0">
+                    Aún no hay reseñas.
                   </p>
                 )}
               </div>
-            </Col>
-          </Row>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal QR */}
+      <Modal
+        show={mostrarQR}
+        onHide={() => setMostrarQR(false)}
+        centered
+        contentClassName="border-0"
+        dialogClassName="mdp-qr-overlay"
+      >
+        <Modal.Body className="text-center p-4">
+          {enlaceProducto ? (
+            <>
+              <div
+                className="d-inline-block p-3 mb-3"
+                style={{
+                  background: "#fff",
+                  borderRadius: 16,
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                <QRCodeSVG
+                  value={enlaceProducto}
+                  size={200}
+                  level="M"
+                  includeMargin={false}
+                  bgColor="#ffffff"
+                  fgColor="#111827"
+                />
+              </div>
+              <Button
+                className="w-100 rounded-pill border-0 fw-semibold"
+                style={{ background: "#0d5c63", padding: "12px" }}
+                onClick={copiarEnlace}
+              >
+                {enlaceCopiado ? "¡Enlace copiado!" : "Copiar enlace"}
+              </Button>
+            </>
+          ) : (
+            <Spinner animation="border" />
+          )}
         </Modal.Body>
       </Modal>
 
+      {/* Modal Tienda */}
       {tienda && (
         <ModalTienda
           mostrar={mostrarModalTienda}
