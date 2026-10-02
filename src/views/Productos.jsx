@@ -11,6 +11,7 @@ import TablaProductos from "../components/productos/TablaProductos";
 import CuadroBusquedas from "../components/busquedas/CuadroBusquedas";
 import Paginacion from "../components/ordenamiento/Paginacion";
 import { useAuth } from "../context/AuthContext";
+import { analizarSeguridadProducto } from "../utils/moderacion";
 
 const Productos = () => {
   const { user, role, loading: authLoading } = useAuth();
@@ -194,79 +195,16 @@ const Productos = () => {
   const parsearNumero = (valor) =>
     Number.parseFloat(String(valor).replace(",", "."));
 
-  const analizarSeguridadProducto = async (producto) => {
-    try {
-      const contenido = `${producto.nombre_producto} ${producto.descripcion}`.toLowerCase();
-      const patronesInfraccion = [
-        {
-          cat: "Drogas",
-          keywords: [
-            "droga", "dr0ga", "m0lly", "marihuana", "cocaina", "tusi",
-            "extasis", "fentanyl", "receta medica", "pastilla azul",
-          ],
-        },
-        {
-          cat: "Armas",
-          keywords: [
-            "pistola", "fusil", "municion", "explosivo", "granada",
-            "cuchillo mariposa", "puñal", "arma blanca",
-          ],
-        },
-        {
-          cat: "Fraude",
-          keywords: [
-            "clonada", "dinero facil", "hackeo", "cuentas robadas",
-            "streaming gratis", "software malicioso", "malware",
-          ],
-        },
-        {
-          cat: "Contenido Adulto",
-          keywords: [
-            "porno", "xxx", "servicios sexuales", "escort", "masajes con final",
-          ],
-        },
-      ];
-
-      let infraccionEncontrada = null;
-      for (const p of patronesInfraccion) {
-        if (
-          p.keywords.some(
-            (k) =>
-              contenido.includes(p.cat === "Drogas" ? k.replace("o", "0") : k) ||
-              contenido.includes(k)
-          )
-        ) {
-          infraccionEncontrada = p;
-          break;
-        }
-      }
-
-      if (infraccionEncontrada) {
-        return {
-          aprobado: false,
-          nivel_riesgo: "alto",
-          motivo: `El producto parece estar relacionado con ${infraccionEncontrada.cat}, lo cual viola nuestras políticas de seguridad.`,
-          categoria_infraccion: infraccionEncontrada.cat,
-        };
-      }
-      return {
-        aprobado: true,
-        nivel_riesgo: "bajo",
-        motivo: "",
-        categoria_infraccion: "Ninguna",
-      };
-    } catch (err) {
-      console.error("Error en moderación:", err);
-      return { aprobado: true };
-    }
-  };
-
-  const notificarAdminInfraccion = async (vendedor, analisis) => {
+  // ============================================================
+  // NOTIFICAR AL ADMIN
+  // ============================================================
+  const notificarAdminInfraccion = async (usuarioAfectado, analisis) => {
     try {
       const { data: admins } = await supabase
         .from("usuarios")
         .select("id_usuario")
         .eq("rol", "admin");
+
       if (!admins || admins.length === 0) return;
 
       for (const admin of admins) {
@@ -275,12 +213,13 @@ const Productos = () => {
           .select("perfil_id")
           .eq("id_usuario", admin.id_usuario)
           .single();
+
         if (perfilAdmin) {
           await supabase.from("notificaciones").insert([
             {
-              usuario_id: perfilAdmin.perfil_id,
+              perfil_id: perfilAdmin.perfil_id,
               titulo: "⚠️ Alerta de Seguridad: Vendedor Reincidente",
-              mensaje: `El usuario ${user.email} ha intentado publicar un producto prohibido (${analisis.categoria_infraccion}) tras varias advertencias.`,
+              mensaje: `El usuario ${usuarioAfectado?.email || "desconocido"} ha intentado publicar un producto prohibido (${analisis.categoria_infraccion}).`,
               leido: false,
             },
           ]);
@@ -288,6 +227,42 @@ const Productos = () => {
       }
     } catch (err) {
       console.error("Error notificando al admin:", err);
+    }
+  };
+
+  // ============================================================
+  // REGISTRAR INFRACCIÓN AL USUARIO
+  // ============================================================
+  const registrarInfraccion = async (analisis) => {
+    try {
+      const { data: usuarioData, error: readError } = await supabase
+        .from("usuarios")
+        .select("infracciones")
+        .eq("id_usuario", user.id)
+        .single();
+
+      if (readError) {
+        console.warn("No se pudo leer infracciones:", readError);
+        return;
+      }
+
+      const nuevasInfracciones = (usuarioData?.infracciones || 0) + 1;
+
+      const { error: updateError } = await supabase
+        .from("usuarios")
+        .update({ infracciones: nuevasInfracciones })
+        .eq("id_usuario", user.id);
+
+      if (updateError) {
+        console.warn("No se pudo actualizar infracciones:", updateError);
+        return;
+      }
+
+      if (nuevasInfracciones >= 2) {
+        await notificarAdminInfraccion(user, analisis);
+      }
+    } catch (err) {
+      console.error("Error registrando infracción:", err);
     }
   };
 
@@ -604,21 +579,10 @@ const Productos = () => {
         console.warn("Error en verificación de límite:", err);
       }
 
-      const analisis = await analizarSeguridadProducto(nuevoProducto);
+      // ✅ MODERACIÓN (solo palabras clave, sin IA, sin await)
+      const analisis = analizarSeguridadProducto(nuevoProducto);
       if (!analisis.aprobado) {
-        const { data: perfil } = await supabase
-          .from("perfiles")
-          .select("infracciones")
-          .eq("id_usuario", user.id)
-          .single();
-        const nuevasInfracciones = (perfil?.infracciones || 0) + 1;
-        await supabase
-          .from("perfiles")
-          .update({ infracciones: nuevasInfracciones })
-          .eq("id_usuario", user.id);
-        if (nuevasInfracciones >= 2) {
-          await notificarAdminInfraccion(user, analisis);
-        }
+        await registrarInfraccion(analisis);
         setToast({
           mostrar: true,
           mensaje: `🚫 Bloqueado por Seguridad: ${analisis.motivo}`,
@@ -739,25 +703,10 @@ const Productos = () => {
         return;
       }
 
-      const analisis = await analizarSeguridadProducto(productoEditar);
+      // Moderación
+      const analisis = analizarSeguridadProducto(productoEditar);
       if (!analisis.aprobado) {
-        const { data: perfil } = await supabase
-          .from("perfiles")
-          .select("infracciones")
-          .eq("id_usuario", user.id)
-          .single();
-
-        const nuevasInfracciones = (perfil?.infracciones || 0) + 1;
-
-        await supabase
-          .from("perfiles")
-          .update({ infracciones: nuevasInfracciones })
-          .eq("id_usuario", user.id);
-
-        if (nuevasInfracciones >= 2) {
-          await notificarAdminInfraccion(user, analisis);
-        }
-
+        await registrarInfraccion(analisis);
         setToast({
           mostrar: true,
           mensaje: `🚫 Edición Bloqueada: ${analisis.motivo}`,
