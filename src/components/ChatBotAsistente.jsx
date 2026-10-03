@@ -96,6 +96,27 @@ const formatearHora = (fecha) => {
   }
 };
 
+/* Normaliza texto: sin tildes y en minúsculas */
+const norm = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
+/* Enlace de Google Maps para llegar a una tienda */
+const enlaceMapa = (tienda) => {
+  if (!tienda) return null;
+  if (tienda.latitud && tienda.longitud) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${tienda.latitud},${tienda.longitud}`;
+  }
+  if (tienda.direccion) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+      `${tienda.direccion}, Nicaragua`
+    )}`;
+  }
+  return null;
+};
+
 /* ===========================================================
    COMPONENTE PRINCIPAL
 =========================================================== */
@@ -188,14 +209,38 @@ const ChatBotAsistente = () => {
     setMensajes((prev) => [...prev, mensaje]);
   };
 
-  const agregarBot = (texto) => {
+  /* Acepta un texto simple o un objeto { texto, productos, tiendas } */
+  const agregarBot = (respuesta) => {
+    const r =
+      typeof respuesta === "string" ? { texto: respuesta } : respuesta || {};
+
     const mensaje = {
       id: Date.now() + Math.random(),
       de: "bot",
-      texto: limpiarMarkdown(texto),
+      texto: limpiarMarkdown(r.texto),
       fecha: new Date().toISOString(),
+      productos: (r.productos || []).map((p) => ({
+        id: p.id_producto,
+        nombre: p.nombre_producto,
+        precio: p.precio_venta,
+        tienda: p.tiendas?.nombre_tienda || "General",
+      })),
+      tiendas: (r.tiendas || []).map((t) => ({
+        id: t.id_tienda,
+        nombre: t.nombre_tienda,
+        direccion: t.direccion || "",
+        enlace: enlaceMapa(t),
+      })),
     };
     setMensajes((prev) => [...prev, mensaje]);
+  };
+
+  /* Ir al producto dentro del catálogo */
+  const verEnCatalogo = (producto) => {
+    setAbierto(false);
+    navigate(`/catalogo?producto=${producto.id}`, {
+      state: { productoId: producto.id, nombre: producto.nombre },
+    });
   };
 
   /* ===========================================================
@@ -286,16 +331,18 @@ const ChatBotAsistente = () => {
       .slice(0, 5);
 
     let respuesta = "Lo que más compra la gente:\n\n";
+    const lista = [];
     ranking.forEach(([id, cantidad], index) => {
       const producto = productos.find((p) => p.id_producto === id);
       if (!producto) return;
+      lista.push(producto);
       respuesta += `${index + 1}. ${producto.nombre_producto}
 Precio: C$${producto.precio_venta}
 Vendido: ${cantidad} veces
 De la tienda: ${producto.tiendas?.nombre_tienda || "General"}
 \n`;
     });
-    return respuesta;
+    return { texto: respuesta, productos: lista };
   };
 
   /* ===========================================================
@@ -365,14 +412,49 @@ Puntaje: ${t.promedio.toFixed(1)} de 5 estrellas
       return "Por ahora no tenemos ofertas con descuento en la tienda.";
 
     let texto = "Productos en rebaja hoy:\n\n";
-    ofertas.slice(0, 5).forEach((p) => {
+    const lista = ofertas.slice(0, 5);
+    lista.forEach((p) => {
       texto += `• ${p.nombre_producto}
 Antes: C$${p.precio_original}
 Ahora: C$${p.precio_venta}
 Tienda: ${p.tiendas?.nombre_tienda || "General"}
 \n`;
     });
-    return texto;
+    return { texto, productos: lista };
+  };
+
+  /* ===========================================================
+     UBICACIÓN DE TIENDAS + ENLACE GOOGLE MAPS
+  =========================================================== */
+  const ubicacionTienda = async (pregunta) => {
+    const tiendas = await obtenerTiendas();
+    if (!tiendas.length) return "Por ahora no hay tiendas guardadas.";
+
+    const texto = norm(pregunta);
+    const encontradas = tiendas.filter(
+      (t) => t.nombre_tienda && texto.includes(norm(t.nombre_tienda))
+    );
+
+    if (!encontradas.length) {
+      const nombres = tiendas
+        .slice(0, 8)
+        .map((t) => `- ${t.nombre_tienda}`)
+        .join("\n");
+      return `¿De cuál tienda quieres saber? Tenemos:\n\n${nombres}`;
+    }
+
+    const conEnlace = encontradas.filter((t) => enlaceMapa(t));
+    if (!conEnlace.length) {
+      return "Esa tienda todavía no tiene su ubicación guardada.";
+    }
+
+    const t = conEnlace[0];
+    return {
+      texto: `La tienda ${t.nombre_tienda} está en: ${
+        t.direccion || "ubicación en el mapa"
+      }.\n\nToca el botón para ver cómo llegar.`,
+      tiendas: [t],
+    };
   };
 
   /* ===========================================================
@@ -442,14 +524,15 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
     }
 
     let respuesta = `Encontré esto para ti:\n\n`;
-    encontrados.slice(0, 5).forEach((p) => {
+    const lista = encontrados.slice(0, 5);
+    lista.forEach((p) => {
       respuesta += `• ${p.nombre_producto}
 Precio: C$${p.precio_venta}
 Quedan: ${p.stock} disponibles
 Tienda: ${p.tiendas?.nombre_tienda || "General"}
 \n`;
     });
-    return respuesta;
+    return { texto: respuesta, productos: lista };
   };
 
   /* ===========================================================
@@ -459,8 +542,6 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
     const productos = await obtenerProductos();
     const categorias = await obtenerCategorias();
     const tiendas = await obtenerTiendas();
-    const pedidos = await obtenerPedidos();
-    const calificaciones = await obtenerCalificaciones();
 
     let contexto = "PRODUCTOS DISPONIBLES:\n";
     productos.forEach((p) => {
@@ -489,7 +570,7 @@ Dirección: ${t.direccion || "No especificada"}
 `;
     });
 
-    return contexto;
+    return { contexto, productos };
   };
 
   /* ===========================================================
@@ -516,15 +597,27 @@ Dirección: ${t.direccion || "No especificada"}
   =========================================================== */
   const consultarGeminiIA = async (pregunta) => {
     try {
-      const contextoBD = await construirContexto();
+      const { contexto: contextoBD, productos } = await construirContexto();
       const contents = construirHistorialGemini(pregunta);
       const systemInstruction = `${MANUAL_INTERMARKET}\n\nINFORMACIÓN EN TIEMPO REAL DE LA TIENDA:\n${contextoBD}`;
 
       const respuestaTexto = await preguntarGemini(contents, systemInstruction);
 
-      return limpiarMarkdown(
+      const texto = limpiarMarkdown(
         respuestaTexto || "No pude encontrar la respuesta."
       );
+
+      /* Si Gemini menciona productos por su nombre, los mostramos */
+      const textoNorm = norm(texto);
+      const mencionados = productos
+        .filter(
+          (p) =>
+            p.nombre_producto &&
+            textoNorm.includes(norm(p.nombre_producto))
+        )
+        .slice(0, 3);
+
+      return { texto, productos: mencionados };
     } catch (error) {
       console.error("Gemini Error:", error);
       if (error.message?.includes("UNAVAILABLE")) {
@@ -565,6 +658,15 @@ Dirección: ${t.direccion || "No especificada"}
     ) {
       navigate("/mensajes");
       return "Te llevo a tus mensajes con los vendedores.";
+    }
+
+    /* ---------- Ubicación de tienda (Google Maps) ---------- */
+    if (
+      /(donde esta|donde queda|\bqueda\b|ubicacion|ubicada|direccion|como llego|como llegar|mapa)/.test(
+        texto
+      )
+    ) {
+      return await ubicacionTienda(textoUsuario);
     }
 
     /* ---------- Productos más vendidos ---------- */
@@ -767,6 +869,45 @@ Dirección: ${t.direccion || "No especificada"}
 
         <div className="chatbot-bubble-wrap">
           <div className="chatbot-bubble">{mensaje.texto}</div>
+
+          {/* TARJETAS DE PRODUCTOS */}
+          {mensaje.productos?.map((p) => (
+            <div key={p.id} className="chatbot-card">
+              <div className="chatbot-card-title">{p.nombre}</div>
+              <div className="chatbot-card-price">C${p.precio}</div>
+              <div className="chatbot-card-text">Tienda: {p.tienda}</div>
+              <button
+                type="button"
+                className="chatbot-btn"
+                onClick={() => verEnCatalogo(p)}
+              >
+                <i className="bi bi-eye-fill"></i>
+                Ver en catálogo
+              </button>
+            </div>
+          ))}
+
+          {/* TARJETAS DE TIENDAS CON GOOGLE MAPS */}
+          {mensaje.tiendas?.map((t) => (
+            <div key={t.id} className="chatbot-card">
+              <div className="chatbot-card-title">{t.nombre}</div>
+              {t.direccion && (
+                <div className="chatbot-card-text">{t.direccion}</div>
+              )}
+              {t.enlace && (
+                <a
+                  href={t.enlace}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="chatbot-btn"
+                >
+                  <i className="bi bi-geo-alt-fill"></i>
+                  Cómo llegar
+                </a>
+              )}
+            </div>
+          ))}
+
           <div className="chatbot-timestamp">
             {formatearHora(mensaje.fecha)}
             {mensaje.de === "user" && (
