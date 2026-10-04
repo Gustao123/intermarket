@@ -463,6 +463,53 @@ const InicioComprador = () => {
         </Container>
       </section>
 
+      <section className="inicio-section inicio-mision-vision">
+  <Container>
+    <div className="inicio-section-heading">
+      <div>
+        <span className="inicio-section-kicker">NUESTRA ESENCIA</span>
+        <h2>Misión y Visión</h2>
+        <p>Lo que impulsa a InterMarket y hacia dónde vamos.</p>
+      </div>
+    </div>
+
+    <Row className="g-4">
+      <Col md={6}>
+        <div className="inicio-mv-card">
+          <div className="inicio-mv-icon">
+            <i className="bi bi-bullseye"></i>
+          </div>
+          <h5 className="inicio-mv-title">Misión</h5>
+          <p className="inicio-mv-text">
+            En <strong>InterMarket</strong> impulsamos el crecimiento y la
+            competitividad de las MiPymes de Nicaragua mediante una plataforma
+            digital innovadora que conecta compradores y vendedores de forma
+            segura, accesible y confiable, generando oportunidades de negocio,
+            fortaleciendo el comercio local y contribuyendo al desarrollo
+            económico sostenible e inclusivo del país.
+          </p>
+        </div>
+      </Col>
+
+      <Col md={6}>
+        <div className="inicio-mv-card">
+          <div className="inicio-mv-icon">
+            <i className="bi bi-eye"></i>
+          </div>
+          <h5 className="inicio-mv-title">Visión</h5>
+          <p className="inicio-mv-text">
+            En <strong>InterMarket</strong> aspiramos a ser el motor digital
+            que impulsa el crecimiento de las MiPymes de Nicaragua,
+            conectándolas con nuevas oportunidades comerciales, promoviendo la
+            innovación y contribuyendo a una economía más inclusiva,
+            competitiva y sostenible.
+          </p>
+        </div>
+      </Col>
+    </Row>
+  </Container>
+</section>
+
       {/* =====================================================
           CTA FINAL
       ===================================================== */}

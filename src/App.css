@@ -17507,3 +17507,142 @@ body:has(.susc-page) .margen-superior-main {
 .chatbot-btn:active {
   transform: scale(0.98);
 }
+
+/* ============================================================
+   INICIO COMPRADOR — MISIÓN Y VISIÓN
+   ============================================================ */
+
+.inicio-mision-vision {
+  padding: 64px 0 40px;
+}
+
+.inicio-mv-card {
+  height: 100%;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 8px 24px rgba(16, 69, 79, 0.06);
+  border: 1px solid rgba(16, 69, 79, 0.06);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.inicio-mv-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 32px rgba(16, 69, 79, 0.1);
+}
+
+.inicio-mv-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(13, 92, 99, 0.1);
+  color: #0d5c63;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 16px;
+}
+
+.inicio-mv-title {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+.inicio-mv-text {
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.inicio-mv-text strong {
+  color: #0d5c63;
+  font-weight: 700;
+}
+
+@media (max-width: 767.98px) {
+  .inicio-mision-vision {
+    padding: 40px 0 24px;
+  }
+
+  .inicio-mv-card {
+    padding: 22px 18px;
+  }
+
+  .inicio-mv-title {
+    font-size: 1.05rem;
+  }
+
+  .inicio-mv-text {
+    font-size: 0.9rem;
+  }
+}
+
+.chatbot-card {
+  margin-top: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 10px;
+  max-width: 240px;
+}
+
+.chatbot-card-img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+  margin-bottom: 8px;
+  background: #f1f5f9;
+}
+
+.chatbot-card-img-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 1.6rem;
+}
+
+.chatbot-card-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.chatbot-card-price {
+  font-weight: 800;
+  color: #0d5c63;
+  font-size: 0.95rem;
+}
+
+.chatbot-card-text {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.chatbot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 999px;
+  background: #0d5c63;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.chatbot-btn:hover {
+  filter: brightness(1.05);
+  color: #fff;
+}

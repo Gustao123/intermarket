@@ -5,12 +5,9 @@ import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
 import { preguntarGemini } from "../services/geminiService";
 
-// Imágenes reales de Capi (src/assets/)
 import capiBurbuja from "../assets/capi_burbuja.jpeg";
 import capiChat from "../assets/capi_chat.jpeg";
 
-/* Avatar circular de Capi: se usa en la burbuja flotante,
-   en el header del chat y junto a cada mensaje del bot. */
 const CapiAvatar = () => <img src={capiBurbuja} alt="Capi" />;
 
 /* ===========================================================
@@ -41,8 +38,15 @@ const eliminarChatCache = () => {
   localStorage.removeItem(CHAT_CACHE_KEY);
 };
 
+const obtenerPrimeraImagen = (producto) => {
+  const raw = producto?.imagen_url ?? producto?.url_imagenes ?? null;
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw[0] || null;
+  return raw;
+};
+
 /* ===========================================================
-   MANUAL COMPLETO INTERMARKET (ULTRA ACCESIBLE Y SENCILLO)
+   MANUAL INTERMARKET
 =========================================================== */
 const MANUAL_INTERMARKET = `
 Eres el asistente virtual oficial de InterMarket.
@@ -61,20 +65,12 @@ REGLAS DE COMUNICACIÓN OBLIGATORIAS:
 10. Da respuestas directas de no más de 3 o 4 líneas cuando sea posible.
 `.trim();
 
-/* ===========================================================
-   SUGERENCIAS SIMPLIFICADAS
-=========================================================== */
 const sugerencias = [
-  "¿Qué venden más?",
-  "Mejores tiendas",
   "¿Cómo compro?",
   "Ver ofertas",
   "Buscar ropa",
 ];
 
-/* ===========================================================
-   LIMPIAR RESPUESTAS GEMINI
-=========================================================== */
 const limpiarMarkdown = (texto) =>
   String(texto || "")
     .replace(/\*\*(.*?)\*\*/g, "$1")
@@ -96,14 +92,12 @@ const formatearHora = (fecha) => {
   }
 };
 
-/* Normaliza texto: sin tildes y en minúsculas */
 const norm = (s) =>
   String(s || "")
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
-/* Enlace de Google Maps para llegar a una tienda */
 const enlaceMapa = (tienda) => {
   if (!tienda) return null;
   if (tienda.latitud && tienda.longitud) {
@@ -124,7 +118,9 @@ const ChatBotAsistente = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, role } = useAuth();
+
   const finRef = useRef(null);
+  const mensajesBoxRef = useRef(null);
 
   const [abierto, setAbierto] = useState(false);
   const [entrada, setEntrada] = useState("");
@@ -148,9 +144,6 @@ const ChatBotAsistente = () => {
     mensajesRef.current = mensajes;
   }, [mensajes]);
 
-  /* ===========================================================
-     CARGAR HISTORIAL DESDE CACHE
-  =========================================================== */
   useEffect(() => {
     const historial = cargarChatCache();
     if (historial.length > 0) {
@@ -158,27 +151,27 @@ const ChatBotAsistente = () => {
     }
   }, []);
 
-  /* ===========================================================
-     GUARDAR CACHE AUTOMÁTICO
-  =========================================================== */
   useEffect(() => {
     guardarChatCache(mensajes);
   }, [mensajes]);
 
-  /* ===========================================================
-     SCROLL AUTOMÁTICO
-  =========================================================== */
-  useEffect(() => {
-    if (finRef.current) {
-      finRef.current.scrollIntoView({
-        behavior: "smooth",
-      });
+  const scrollAlFinal = () => {
+    if (mensajesBoxRef.current) {
+      const el = mensajesBoxRef.current;
+      el.scrollTop = el.scrollHeight;
+      return;
     }
+    if (finRef.current) {
+      finRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  };
+
+  useEffect(() => {
+    if (!abierto) return;
+    const t = setTimeout(scrollAlFinal, 60);
+    return () => clearTimeout(t);
   }, [mensajes, pensando, abierto]);
 
-  /* ===========================================================
-     OCULTAR CHAT EN CIERTAS RUTAS
-  =========================================================== */
   const rutasOcultas = [
     "/login",
     "/registro",
@@ -194,11 +187,6 @@ const ChatBotAsistente = () => {
     role === "admin" ||
     role === "vendedor";
 
-  if (ocultar) return null;
-
-  /* ===========================================================
-     FUNCIONES DE MENSAJES
-  =========================================================== */
   const agregarUsuario = (texto) => {
     const mensaje = {
       id: Date.now() + Math.random(),
@@ -209,7 +197,6 @@ const ChatBotAsistente = () => {
     setMensajes((prev) => [...prev, mensaje]);
   };
 
-  /* Acepta un texto simple o un objeto { texto, productos, tiendas } */
   const agregarBot = (respuesta) => {
     const r =
       typeof respuesta === "string" ? { texto: respuesta } : respuesta || {};
@@ -224,18 +211,19 @@ const ChatBotAsistente = () => {
         nombre: p.nombre_producto,
         precio: p.precio_venta,
         tienda: p.tiendas?.nombre_tienda || "General",
+        imagen: obtenerPrimeraImagen(p),
       })),
       tiendas: (r.tiendas || []).map((t) => ({
         id: t.id_tienda,
         nombre: t.nombre_tienda,
         direccion: t.direccion || "",
         enlace: enlaceMapa(t),
+        imagen: t.imagen_url || null,
       })),
     };
     setMensajes((prev) => [...prev, mensaje]);
   };
 
-  /* Ir al producto dentro del catálogo */
   const verEnCatalogo = (producto) => {
     setAbierto(false);
     navigate(`/catalogo?producto=${producto.id}`, {
@@ -243,18 +231,12 @@ const ChatBotAsistente = () => {
     });
   };
 
-  /* ===========================================================
-     NUEVO CHAT
-  =========================================================== */
   const nuevoChat = () => {
     eliminarChatCache();
     setMensajes([mensajeBienvenida]);
     setEntrada("");
   };
 
-  /* ===========================================================
-     ELIMINAR HISTORIAL
-  =========================================================== */
   const eliminarHistorial = () => {
     const confirmar = window.confirm(
       "¿Quieres borrar todo lo que hemos hablado?"
@@ -268,11 +250,9 @@ const ChatBotAsistente = () => {
      CONSULTAS SUPABASE
   =========================================================== */
   const obtenerProductos = async () => {
-    const { data, error } = await supabase
-      .from("productos")
-      .select(`
+    const { data, error } = await supabase.from("productos").select(`
         *,
-        tiendas(id_tienda,nombre_tienda,direccion,latitud,longitud),
+        tiendas(id_tienda,nombre_tienda,direccion,latitud,longitud,imagen_url),
         categorias(id_categoria,nombre_categoria)
       `);
     if (error) {
@@ -291,9 +271,7 @@ const ChatBotAsistente = () => {
   };
 
   const obtenerTiendas = async () => {
-    const { data } = await supabase
-      .from("tiendas")
-      .select("*");
+    const { data } = await supabase.from("tiendas").select("*");
     return data || [];
   };
 
@@ -311,9 +289,6 @@ const ChatBotAsistente = () => {
     return data || [];
   };
 
-  /* ===========================================================
-     PRODUCTOS MÁS VENDIDOS (LENGUAJE SENCILLO)
-  =========================================================== */
   const productosMasVendidos = async () => {
     const pedidos = await obtenerPedidos();
     const productos = await obtenerProductos();
@@ -345,9 +320,6 @@ De la tienda: ${producto.tiendas?.nombre_tienda || "General"}
     return { texto: respuesta, productos: lista };
   };
 
-  /* ===========================================================
-     TIENDAS MEJOR VALORADAS (LENGUAJE SENCILLO)
-  =========================================================== */
   const tiendasMejorValoradas = async () => {
     const tiendas = await obtenerTiendas();
     const calificaciones = await obtenerCalificaciones();
@@ -363,26 +335,24 @@ De la tienda: ${producto.tiendas?.nombre_tienda || "General"}
     const ranking = Object.entries(mapa)
       .map(([id, arr]) => ({
         id,
-        promedio:
-          arr.reduce((a, b) => a + b, 0) / arr.length,
+        promedio: arr.reduce((a, b) => a + b, 0) / arr.length,
         opiniones: arr.length,
       }))
       .sort((a, b) => b.promedio - a.promedio)
       .slice(0, 5);
 
     let texto = "Las mejores tiendas según la gente:\n\n";
+    const lista = [];
     ranking.forEach((t, index) => {
       const tienda = tiendas.find((x) => x.id_tienda === t.id);
+      if (tienda) lista.push(tienda);
       texto += `${index + 1}. ${tienda?.nombre_tienda || "Tienda"}
 Puntaje: ${t.promedio.toFixed(1)} de 5 estrellas
 \n`;
     });
-    return texto;
+    return { texto, tiendas: lista };
   };
 
-  /* ===========================================================
-     LISTAR CATEGORÍAS
-  =========================================================== */
   const listarCategorias = async () => {
     const categorias = await obtenerCategorias();
     if (!categorias.length)
@@ -390,22 +360,16 @@ Puntaje: ${t.promedio.toFixed(1)} de 5 estrellas
 
     return (
       "Tenemos de todo un poco:\n\n" +
-      categorias
-        .map((c) => `- ${c.nombre_categoria}`)
-        .join("\n")
+      categorias.map((c) => `- ${c.nombre_categoria}`).join("\n")
     );
   };
 
-  /* ===========================================================
-     OFERTAS
-  =========================================================== */
   const obtenerOfertas = async () => {
     const productos = await obtenerProductos();
     const ofertas = productos.filter(
       (p) =>
         p.precio_original &&
-        Number(p.precio_original) >
-          Number(p.precio_venta)
+        Number(p.precio_original) > Number(p.precio_venta)
     );
 
     if (!ofertas.length)
@@ -423,9 +387,6 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
     return { texto, productos: lista };
   };
 
-  /* ===========================================================
-     UBICACIÓN DE TIENDAS + ENLACE GOOGLE MAPS
-  =========================================================== */
   const ubicacionTienda = async (pregunta) => {
     const tiendas = await obtenerTiendas();
     if (!tiendas.length) return "Por ahora no hay tiendas guardadas.";
@@ -457,9 +418,6 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
     };
   };
 
-  /* ===========================================================
-     BUSCADOR INTELIGENTE LOCAL (ESTRICTO)
-  =========================================================== */
   const buscarProducto = async (pregunta) => {
     const productos = await obtenerProductos();
     const texto = pregunta
@@ -468,9 +426,25 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
       .toLowerCase();
 
     const ignorar = [
-      "en", "que", "donde", "encuentro", "buscar", "busca",
-      "hay", "quiero", "una", "un", "el", "la", "los", "las",
-      "de", "para", "con", "color", "talla"
+      "en",
+      "que",
+      "donde",
+      "encuentro",
+      "buscar",
+      "busca",
+      "hay",
+      "quiero",
+      "una",
+      "un",
+      "el",
+      "la",
+      "los",
+      "las",
+      "de",
+      "para",
+      "con",
+      "color",
+      "talla",
     ];
 
     const palabras = texto
@@ -490,9 +464,7 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
         .normalize("NFD")
         .replace(/\p{Diacritic}/gu, "")
         .toLowerCase();
-      const categoria = (
-        producto.categorias?.nombre_categoria || ""
-      )
+      const categoria = (producto.categorias?.nombre_categoria || "")
         .normalize("NFD")
         .replace(/\p{Diacritic}/gu, "")
         .toLowerCase();
@@ -500,23 +472,18 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
         .normalize("NFD")
         .replace(/\p{Diacritic}/gu, "")
         .toLowerCase();
-      const tallas = (producto.tallas || []).map((t) =>
-        t.toLowerCase()
-      );
-      const colores = (producto.colores || []).map((c) =>
-        c.toLowerCase()
-      );
+      const tallas = (producto.tallas || []).map((t) => t.toLowerCase());
+      const colores = (producto.colores || []).map((c) => c.toLowerCase());
 
-      return palabras.every((palabra) => {
-        return (
+      return palabras.every(
+        (palabra) =>
           nombre.includes(palabra) ||
           descripcion.includes(palabra) ||
           categoria.includes(palabra) ||
           tienda.includes(palabra) ||
           tallas.some((t) => t.includes(palabra)) ||
           colores.some((c) => c.includes(palabra))
-        );
-      });
+      );
     });
 
     if (!encontrados.length) {
@@ -535,9 +502,6 @@ Tienda: ${p.tiendas?.nombre_tienda || "General"}
     return { texto: respuesta, productos: lista };
   };
 
-  /* ===========================================================
-     CREAR CONTEXTO PARA GEMINI
-  =========================================================== */
   const construirContexto = async () => {
     const productos = await obtenerProductos();
     const categorias = await obtenerCategorias();
@@ -573,16 +537,11 @@ Dirección: ${t.direccion || "No especificada"}
     return { contexto, productos };
   };
 
-  /* ===========================================================
-     CONVERTIR HISTORIAL AL FORMATO DE GEMINI
-  =========================================================== */
   const construirHistorialGemini = (preguntaActual) => {
-    const historial = mensajesRef.current
-      .slice(-12)
-      .map((m) => ({
-        role: m.de === "user" ? "user" : "model",
-        parts: [{ text: m.texto }],
-      }));
+    const historial = mensajesRef.current.slice(-12).map((m) => ({
+      role: m.de === "user" ? "user" : "model",
+      parts: [{ text: m.texto }],
+    }));
 
     historial.push({
       role: "user",
@@ -592,22 +551,21 @@ Dirección: ${t.direccion || "No especificada"}
     return historial;
   };
 
-  /* ===========================================================
-     CONSULTAR GEMINI IA
-  =========================================================== */
   const consultarGeminiIA = async (pregunta) => {
     try {
       const { contexto: contextoBD, productos } = await construirContexto();
       const contents = construirHistorialGemini(pregunta);
       const systemInstruction = `${MANUAL_INTERMARKET}\n\nINFORMACIÓN EN TIEMPO REAL DE LA TIENDA:\n${contextoBD}`;
 
-      const respuestaTexto = await preguntarGemini(contents, systemInstruction);
+      const respuestaTexto = await preguntarGemini(
+        contents,
+        systemInstruction
+      );
 
       const texto = limpiarMarkdown(
         respuestaTexto || "No pude encontrar la respuesta."
       );
 
-      /* Si Gemini menciona productos por su nombre, los mostramos */
       const textoNorm = norm(texto);
       const mencionados = productos
         .filter(
@@ -627,16 +585,12 @@ Dirección: ${t.direccion || "No especificada"}
     }
   };
 
-  /* ===========================================================
-     RESPUESTAS RÁPIDAS DEL CHAT (SÚPER DIRECTAS)
-  =========================================================== */
   const responder = async (textoUsuario) => {
     const texto = textoUsuario
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "")
       .toLowerCase();
 
-    /* ---------- Navegación ---------- */
     if (
       /(catalogo|productos)/.test(texto) &&
       /(ir|abrir|ver|mostrar)/.test(texto)
@@ -645,22 +599,16 @@ Dirección: ${t.direccion || "No especificada"}
       return "Listo, te llevo a ver todos los productos.";
     }
 
-    if (
-      /(perfil|mi cuenta)/.test(texto) &&
-      user
-    ) {
+    if (/(perfil|mi cuenta)/.test(texto) && user) {
       navigate("/perfil");
       return "Te llevo a tu perfil.";
     }
 
-    if (
-      /(mensajes|chat vendedor|contactar vendedor)/.test(texto)
-    ) {
+    if (/(mensajes|chat vendedor|contactar vendedor)/.test(texto)) {
       navigate("/mensajes");
       return "Te llevo a tus mensajes con los vendedores.";
     }
 
-    /* ---------- Ubicación de tienda (Google Maps) ---------- */
     if (
       /(donde esta|donde queda|\bqueda\b|ubicacion|ubicada|direccion|como llego|como llegar|mapa)/.test(
         texto
@@ -669,7 +617,6 @@ Dirección: ${t.direccion || "No especificada"}
       return await ubicacionTienda(textoUsuario);
     }
 
-    /* ---------- Productos más vendidos ---------- */
     if (
       /(mas vendido|productos mas vendidos|producto popular|top producto)/.test(
         texto
@@ -678,7 +625,6 @@ Dirección: ${t.direccion || "No especificada"}
       return await productosMasVendidos();
     }
 
-    /* ---------- Tiendas mejor valoradas ---------- */
     if (
       /(mejor tienda|mejor valorada|ranking tiendas|tiendas mejor valoradas)/.test(
         texto
@@ -687,26 +633,15 @@ Dirección: ${t.direccion || "No especificada"}
       return await tiendasMejorValoradas();
     }
 
-    /* ---------- Categorías ---------- */
-    if (
-      /(categorias|categoria disponible)/.test(texto)
-    ) {
+    if (/(categorias|categoria disponible)/.test(texto)) {
       return await listarCategorias();
     }
 
-    /* ---------- Ofertas ---------- */
-    if (
-      /(oferta|descuento|rebaja|promocion)/.test(texto)
-    ) {
+    if (/(oferta|descuento|rebaja|promocion)/.test(texto)) {
       return await obtenerOfertas();
     }
 
-    /* ---------- Cómo comprar ---------- */
-    if (
-      /(como compro|como comprar|carrito|pagar|pedido)/.test(
-        texto
-      )
-    ) {
+    if (/(como compro|como comprar|carrito|pagar|pedido)/.test(texto)) {
       return `Comprar es facilísimo:
 1. Toca el producto que te guste.
 2. Elige tu talla o color.
@@ -715,32 +650,28 @@ Dirección: ${t.direccion || "No especificada"}
 5. ¡Listo! Espera a que el vendedor se contacte contigo.`;
     }
 
-    /* ---------- Cómo vender ---------- */
-    if (
-      /(vender|abrir tienda|crear tienda|suscripcion)/.test(texto)
-    ) {
+    if (/(vender|abrir tienda|crear tienda|suscripcion)/.test(texto)) {
       return `Para vender tus productos:
 1. Registra tu cuenta como vendedor.
 2. Entra a "Mis Tiendas" y crea tu tienda.
 3. Sube las fotos y precios de lo que quieres vender.`;
     }
 
-    /* ---------- Saludos ---------- */
-    if (
-      /^(hola|buenas|hello|hey|ayuda)$/.test(texto.trim())
-    ) {
+    if (/^(hola|buenas|hello|hey|ayuda)$/.test(texto.trim())) {
       return `¡Hola! Con gusto te ayudo. Puedes preguntarme cosas sencillas como:
 - ¿Qué ropa o zapatos hay?
 - ¿Cuáles son las ofertas de hoy?
 - ¿Cómo se compra un producto?`;
     }
 
-    /* ---------- Filtros o colores -> Gemini IA ---------- */
-    if (/(color|talla|blanco|negro|rojo|azul|verde|talla s|talla m|talla l)/.test(texto)) {
+    if (
+      /(color|talla|blanco|negro|rojo|azul|verde|talla s|talla m|talla l)/.test(
+        texto
+      )
+    ) {
       return await consultarGeminiIA(textoUsuario);
     }
 
-    /* ---------- Búsqueda local básica ---------- */
     if (
       /(camisa|blusa|pantalon|zapato|zapatilla|tenis|gorra|bolso|short|chaqueta|calcetin|cadena|diadema)/.test(
         texto
@@ -749,13 +680,9 @@ Dirección: ${t.direccion || "No especificada"}
       return await buscarProducto(textoUsuario);
     }
 
-    /* ---------- Todo lo demás -> Gemini ---------- */
     return await consultarGeminiIA(textoUsuario);
   };
 
-  /* ===========================================================
-     ENVIAR MENSAJE
-  =========================================================== */
   const enviar = async (mensajeLibre) => {
     const texto = (mensajeLibre ?? entrada).trim();
     if (!texto || pensando) return;
@@ -770,16 +697,13 @@ Dirección: ${t.direccion || "No especificada"}
     } catch (error) {
       console.error(error);
       agregarBot(
-        "Tive un pequeño problema para responder. Por favor prueba a preguntarme de nuevo."
+        "Tuve un pequeño problema para responder. Por favor prueba a preguntarme de nuevo."
       );
     } finally {
       setPensando(false);
     }
   };
 
-  /* ===========================================================
-     ENTER PARA ENVIAR
-  =========================================================== */
   const manejarEnter = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -787,12 +711,10 @@ Dirección: ${t.direccion || "No especificada"}
     }
   };
 
-  /* ===========================================================
-     INTERFAZ DEL CHATBOT
-  =========================================================== */
+  if (ocultar) return null;
+
   return (
     <>
-      {/* BOTÓN FLOTANTE */}
       <button
         type="button"
         aria-label="Asistente InterMarket"
@@ -809,10 +731,8 @@ Dirección: ${t.direccion || "No especificada"}
         )}
       </button>
 
-      {/* VENTANA DEL CHAT */}
       {abierto && (
         <div className="chatbot-container">
-          {/* ================= HEADER ================= */}
           <div className="chatbot-header">
             <div className="chatbot-header-avatar">
               <CapiAvatar />
@@ -851,96 +771,114 @@ Dirección: ${t.direccion || "No especificada"}
             </div>
           </div>
 
-          {/* ================= MENSAJES ================= */}
-         <div className="chatbot-messages-wrap">
-  <img className="chatbot-mascota-bg" src={capiChat} alt="" />
-
-  <div className="chatbot-messages">
-    {mensajes.map((mensaje) => (
-      <div
-        key={mensaje.id}
-        className={`chatbot-message ${mensaje.de}`}
-      >
-        {mensaje.de === "bot" && (
-          <div className="chatbot-avatar-mini">
-            <CapiAvatar />
-          </div>
-        )}
-
-        <div className="chatbot-bubble-wrap">
-          <div className="chatbot-bubble">{mensaje.texto}</div>
-
-          {/* TARJETAS DE PRODUCTOS */}
-          {mensaje.productos?.map((p) => (
-            <div key={p.id} className="chatbot-card">
-              <div className="chatbot-card-title">{p.nombre}</div>
-              <div className="chatbot-card-price">C${p.precio}</div>
-              <div className="chatbot-card-text">Tienda: {p.tienda}</div>
-              <button
-                type="button"
-                className="chatbot-btn"
-                onClick={() => verEnCatalogo(p)}
-              >
-                <i className="bi bi-eye-fill"></i>
-                Ver en catálogo
-              </button>
-            </div>
-          ))}
-
-          {/* TARJETAS DE TIENDAS CON GOOGLE MAPS */}
-          {mensaje.tiendas?.map((t) => (
-            <div key={t.id} className="chatbot-card">
-              <div className="chatbot-card-title">{t.nombre}</div>
-              {t.direccion && (
-                <div className="chatbot-card-text">{t.direccion}</div>
-              )}
-              {t.enlace && (
-                <a
-                  href={t.enlace}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="chatbot-btn"
-                >
-                  <i className="bi bi-geo-alt-fill"></i>
-                  Cómo llegar
-                </a>
-              )}
-            </div>
-          ))}
-
-          <div className="chatbot-timestamp">
-            {formatearHora(mensaje.fecha)}
-            {mensaje.de === "user" && (
-              <i className="bi bi-check2-all"></i>
-            )}
-          </div>
-        </div>
-      </div>
-    ))}
-
-    {pensando && (
-      <div className="chatbot-message bot">
-        <div className="chatbot-avatar-mini">
-          <CapiAvatar />
-        </div>
-        <div className="chatbot-bubble-wrap">
-          <div className="chatbot-bubble d-flex align-items-center gap-2">
-            <Spinner animation="border" size="sm" />
-            Buscando...
-          </div>
-        </div>
-      </div>
-    )}
-
-    <div ref={finRef}></div>
-  </div>
-
+          <div className="chatbot-messages-wrap">
             <img className="chatbot-mascota-bg" src={capiChat} alt="" />
 
-            <div ref={finRef}></div>
+            <div className="chatbot-messages" ref={mensajesBoxRef}>
+              {mensajes.map((mensaje) => (
+                <div
+                  key={mensaje.id}
+                  className={`chatbot-message ${mensaje.de}`}
+                >
+                  {mensaje.de === "bot" && (
+                    <div className="chatbot-avatar-mini">
+                      <CapiAvatar />
+                    </div>
+                  )}
+
+                  <div className="chatbot-bubble-wrap">
+                    <div className="chatbot-bubble">{mensaje.texto}</div>
+
+                    {/* TARJETAS DE PRODUCTOS CON IMAGEN */}
+                    {mensaje.productos?.map((p) => (
+                      <div key={p.id} className="chatbot-card">
+                        {p.imagen ? (
+                          <img
+                            src={p.imagen}
+                            alt={p.nombre}
+                            className="chatbot-card-img"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="chatbot-card-img chatbot-card-img-empty">
+                            <i className="bi bi-box-seam"></i>
+                          </div>
+                        )}
+                        <div className="chatbot-card-title">{p.nombre}</div>
+                        <div className="chatbot-card-price">C${p.precio}</div>
+                        <div className="chatbot-card-text">
+                          Tienda: {p.tienda}
+                        </div>
+                        <button
+                          type="button"
+                          className="chatbot-btn"
+                          onClick={() => verEnCatalogo(p)}
+                        >
+                          <i className="bi bi-eye-fill"></i>
+                          Ver en catálogo
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* TARJETAS DE TIENDAS */}
+                    {mensaje.tiendas?.map((t) => (
+                      <div key={t.id} className="chatbot-card">
+                        {t.imagen && (
+                          <img
+                            src={t.imagen}
+                            alt={t.nombre}
+                            className="chatbot-card-img"
+                            loading="lazy"
+                          />
+                        )}
+                        <div className="chatbot-card-title">{t.nombre}</div>
+                        {t.direccion && (
+                          <div className="chatbot-card-text">
+                            {t.direccion}
+                          </div>
+                        )}
+                        {t.enlace && (
+                          <a
+                            href={t.enlace}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="chatbot-btn"
+                          >
+                            <i className="bi bi-geo-alt-fill"></i>
+                            Cómo llegar
+                          </a>
+                        )}
+                      </div>
+                    ))}
+
+                    <div className="chatbot-timestamp">
+                      {formatearHora(mensaje.fecha)}
+                      {mensaje.de === "user" && (
+                        <i className="bi bi-check2-all"></i>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {pensando && (
+                <div className="chatbot-message bot">
+                  <div className="chatbot-avatar-mini">
+                    <CapiAvatar />
+                  </div>
+                  <div className="chatbot-bubble-wrap">
+                    <div className="chatbot-bubble d-flex align-items-center gap-2">
+                      <Spinner animation="border" size="sm" />
+                      Buscando...
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={finRef} />
+            </div>
           </div>
 
-          {/* ================= SUGERENCIAS ================= */}
           <div className="chatbot-suggestions">
             {sugerencias.map((sugerencia) => (
               <button
@@ -954,7 +892,6 @@ Dirección: ${t.direccion || "No especificada"}
             ))}
           </div>
 
-          {/* ================= INPUT ================= */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -988,7 +925,6 @@ Dirección: ${t.direccion || "No especificada"}
             </button>
           </form>
 
-          {/* ================= FOOTER ================= */}
           <div className="chatbot-footer">
             Asistente sencillo de InterMarket
           </div>
