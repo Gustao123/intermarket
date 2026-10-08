@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Form, Button, Row, Col, Badge } from "react-bootstrap";
+import { obtenerConfigCategoriaPorId } from "../../utils/variantesCategorias";
 
 const ModalRegistroProducto = ({
   mostrarModal,
@@ -20,25 +21,14 @@ const ModalRegistroProducto = ({
     setDeshabilitado(false);
   };
 
-  const esCategoriaRopa = () => {
-    const cat = categorias.find(
-      (c) => c.id_categoria === parseInt(nuevoProducto.categoria_id)
-    );
-    return cat && cat.nombre_categoria.toLowerCase().includes("ropa");
-  };
+  // Configuración dinámica según categoría
+  const configCategoria = obtenerConfigCategoriaPorId(
+    nuevoProducto.categoria_id,
+    categorias
+  );
 
-  const TALLAS_COMUNES = ["Única", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
-  const COLORES_COMUNES = [
-    "Blanco",
-    "Negro",
-    "Rojo",
-    "Azul",
-    "Verde",
-    "Amarillo",
-    "Gris",
-    "Beige",
-    "Rosa",
-  ];
+  const MEDIDAS = configCategoria?.medidas || [];
+  const COLORES = configCategoria?.colores || [];
 
   const toggleSeleccion = (campo, valor) => {
     const actual = Array.isArray(nuevoProducto[campo]) ? nuevoProducto[campo] : [];
@@ -48,22 +38,32 @@ const ModalRegistroProducto = ({
     manejoCambioInput({ target: { name: campo, value: nuevo } });
   };
 
-  const handleTallasChange = (e) => {
+  const handleMedidasChange = (e) => {
     const value = e.target.value;
-    const tallasArray = value
+    const otrasMedidas = value
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s !== "");
-    manejoCambioInput({ target: { name: "tallas", value: tallasArray } });
+
+    const actuales = Array.isArray(nuevoProducto.tallas) ? nuevoProducto.tallas : [];
+    const predefinidasSeleccionadas = actuales.filter((t) => MEDIDAS.includes(t));
+    const nuevas = [...new Set([...predefinidasSeleccionadas, ...otrasMedidas])];
+
+    manejoCambioInput({ target: { name: "tallas", value: nuevas } });
   };
 
   const handleColoresChange = (e) => {
     const value = e.target.value;
-    const coloresArray = value
+    const otrosColores = value
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s !== "");
-    manejoCambioInput({ target: { name: "colores", value: coloresArray } });
+
+    const actuales = Array.isArray(nuevoProducto.colores) ? nuevoProducto.colores : [];
+    const predefinidosSeleccionados = actuales.filter((c) => COLORES.includes(c));
+    const nuevos = [...new Set([...predefinidosSeleccionados, ...otrosColores])];
+
+    manejoCambioInput({ target: { name: "colores", value: nuevos } });
   };
 
   const labelStyle = {
@@ -252,48 +252,50 @@ const ModalRegistroProducto = ({
             </Form.Text>
           </Form.Group>
 
-          {/* Variantes ropa */}
-          {esCategoriaRopa() && (
+          {/* Variantes dinámicas */}
+          {configCategoria && (
             <div
               className="mb-3 p-3 rounded-3"
               style={{ backgroundColor: "#f8fafb", border: "1px solid #e8f0f2" }}
             >
               <h6 className="fw-bold mb-3" style={{ color: "#0d5c63", fontSize: "0.95rem" }}>
-                <i className="bi bi-tag me-2"></i>
-                Variantes de Ropa
+                <i className={`bi ${configCategoria.icono} me-2`}></i>
+                {configCategoria.labelSeccion}
               </h6>
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-2">
-                    <Form.Label className="small fw-semibold text-muted">Tallas</Form.Label>
+                    <Form.Label className="small fw-semibold text-muted">
+                      {configCategoria.labelMedidas}
+                    </Form.Label>
                     <div className="d-flex flex-wrap gap-1 mb-2">
-                      {TALLAS_COMUNES.map((talla) => (
+                      {MEDIDAS.map((medida) => (
                         <Button
-                          key={talla}
+                          key={medida}
                           variant={
                             Array.isArray(nuevoProducto.tallas) &&
-                            nuevoProducto.tallas.includes(talla)
+                            nuevoProducto.tallas.includes(medida)
                               ? "primary"
                               : "outline-secondary"
                           }
                           size="sm"
                           className="rounded-pill px-3 py-1"
                           style={{ fontSize: "0.75rem" }}
-                          onClick={() => toggleSeleccion("tallas", talla)}
+                          onClick={() => toggleSeleccion("tallas", medida)}
                         >
-                          {talla}
+                          {medida}
                         </Button>
                       ))}
                     </div>
                     <Form.Control
                       type="text"
                       size="sm"
-                      placeholder="Otras tallas (ej: 32, 34)"
-                      onChange={handleTallasChange}
+                      placeholder={configCategoria.placeholderMedidas}
+                      onChange={handleMedidasChange}
                       value={
                         Array.isArray(nuevoProducto.tallas)
                           ? nuevoProducto.tallas
-                              .filter((t) => !TALLAS_COMUNES.includes(t))
+                              .filter((t) => !MEDIDAS.includes(t))
                               .join(", ")
                           : ""
                       }
@@ -303,9 +305,11 @@ const ModalRegistroProducto = ({
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-2">
-                    <Form.Label className="small fw-semibold text-muted">Colores</Form.Label>
+                    <Form.Label className="small fw-semibold text-muted">
+                      {configCategoria.labelColores}
+                    </Form.Label>
                     <div className="d-flex flex-wrap gap-1 mb-2">
-                      {COLORES_COMUNES.map((color) => (
+                      {COLORES.map((color) => (
                         <Button
                           key={color}
                           variant={
@@ -326,12 +330,12 @@ const ModalRegistroProducto = ({
                     <Form.Control
                       type="text"
                       size="sm"
-                      placeholder="Otros colores"
+                      placeholder={configCategoria.placeholderColores}
                       onChange={handleColoresChange}
                       value={
                         Array.isArray(nuevoProducto.colores)
                           ? nuevoProducto.colores
-                              .filter((c) => !COLORES_COMUNES.includes(c))
+                              .filter((c) => !COLORES.includes(c))
                               .join(", ")
                           : ""
                       }

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Form, Button, Row, Col } from "react-bootstrap";
+import { obtenerConfigCategoriaPorId } from "../../utils/variantesCategorias";
 
 const ModalEdicionProducto = ({
   mostrarModalEdicion,
@@ -9,7 +10,7 @@ const ModalEdicionProducto = ({
   manejoCambioArchivoActualizar,
   actualizarProducto,
   categorias = [],
-  tiendas = [], // ← lista de tiendas del vendedor
+  tiendas = [],
 }) => {
   const [deshabilitado, setDeshabilitado] = useState(false);
 
@@ -20,30 +21,19 @@ const ModalEdicionProducto = ({
     setDeshabilitado(false);
   };
 
-  const esCategoriaRopa = () => {
-    const cat = categorias.find(
-      (c) => String(c.id_categoria) === String(productoEditar.categoria_id)
-    );
-    return cat && cat.nombre_categoria?.toLowerCase().includes("ropa");
-  };
+  if (!productoEditar) return null;
 
-  const TALLAS_COMUNES = ["Única", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
-  const COLORES_COMUNES = [
-    "Blanco",
-    "Negro",
-    "Rojo",
-    "Azul",
-    "Verde",
-    "Amarillo",
-    "Gris",
-    "Beige",
-    "Rosa",
-  ];
+  // Configuración dinámica según categoría
+  const configCategoria = obtenerConfigCategoriaPorId(
+    productoEditar.categoria_id,
+    categorias
+  );
+
+  const MEDIDAS = configCategoria?.medidas || [];
+  const COLORES = configCategoria?.colores || [];
 
   const toggleSeleccionEdicion = (campo, valor) => {
-    const actual = Array.isArray(productoEditar[campo])
-      ? productoEditar[campo]
-      : [];
+    const actual = Array.isArray(productoEditar[campo]) ? productoEditar[campo] : [];
     const nuevo = actual.includes(valor)
       ? actual.filter((v) => v !== valor)
       : [...actual, valor];
@@ -51,27 +41,33 @@ const ModalEdicionProducto = ({
     manejoCambioInputEdicion({ target: { name: campo, value: nuevo } });
   };
 
-  const handleTallasChange = (e) => {
+  const handleMedidasChange = (e) => {
     const value = e.target.value;
-    const tallasArray = value
+    const otrasMedidas = value
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s !== "");
-    manejoCambioInputEdicion({ target: { name: "tallas", value: tallasArray } });
+
+    const actuales = Array.isArray(productoEditar.tallas) ? productoEditar.tallas : [];
+    const predefinidasSeleccionadas = actuales.filter((t) => MEDIDAS.includes(t));
+    const nuevas = [...new Set([...predefinidasSeleccionadas, ...otrasMedidas])];
+
+    manejoCambioInputEdicion({ target: { name: "tallas", value: nuevas } });
   };
 
   const handleColoresChange = (e) => {
     const value = e.target.value;
-    const coloresArray = value
+    const otrosColores = value
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s !== "");
-    manejoCambioInputEdicion({
-      target: { name: "colores", value: coloresArray },
-    });
-  };
 
-  if (!productoEditar) return null;
+    const actuales = Array.isArray(productoEditar.colores) ? productoEditar.colores : [];
+    const predefinidosSeleccionados = actuales.filter((c) => COLORES.includes(c));
+    const nuevos = [...new Set([...predefinidosSeleccionados, ...otrosColores])];
+
+    manejoCambioInputEdicion({ target: { name: "colores", value: nuevos } });
+  };
 
   return (
     <Modal
@@ -133,7 +129,6 @@ const ModalEdicionProducto = ({
             </Col>
           </Row>
 
-          {/* ========== TIENDA (igual que en registrar) ========== */}
           <Form.Group className="mb-3">
             <Form.Label>
               <i className="bi bi-shop me-1"></i>
@@ -231,46 +226,47 @@ const ModalEdicionProducto = ({
             </Col>
           </Row>
 
-          {esCategoriaRopa() && (
+          {/* Variantes dinámicas */}
+          {configCategoria && (
             <div className="bg-light p-3 rounded-4 mb-3 border border-secondary border-opacity-10">
               <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">
-                <i className="bi bi-tag text-primary"></i>
-                Variantes de Ropa
+                <i className={`bi ${configCategoria.icono} text-primary`}></i>
+                {configCategoria.labelSeccion}
               </h6>
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label className="small fw-bold text-muted">
-                      Tallas Disponibles
+                      {configCategoria.labelMedidas}
                     </Form.Label>
                     <div className="d-flex flex-wrap gap-1 mb-2">
-                      {TALLAS_COMUNES.map((talla) => (
+                      {MEDIDAS.map((medida) => (
                         <Button
-                          key={talla}
+                          key={medida}
                           variant={
                             Array.isArray(productoEditar.tallas) &&
-                            productoEditar.tallas.includes(talla)
+                            productoEditar.tallas.includes(medida)
                               ? "primary"
                               : "outline-secondary"
                           }
                           size="sm"
                           className="rounded-pill px-3 py-1"
                           style={{ fontSize: "0.75rem" }}
-                          onClick={() => toggleSeleccionEdicion("tallas", talla)}
+                          onClick={() => toggleSeleccionEdicion("tallas", medida)}
                         >
-                          {talla}
+                          {medida}
                         </Button>
                       ))}
                     </div>
                     <Form.Control
                       type="text"
                       size="sm"
-                      placeholder="Otras tallas (ej: 32, 34, 36)"
-                      onChange={handleTallasChange}
+                      placeholder={configCategoria.placeholderMedidas}
+                      onChange={handleMedidasChange}
                       value={
                         Array.isArray(productoEditar.tallas)
                           ? productoEditar.tallas
-                              .filter((t) => !TALLAS_COMUNES.includes(t))
+                              .filter((t) => !MEDIDAS.includes(t))
                               .join(", ")
                           : ""
                       }
@@ -281,10 +277,10 @@ const ModalEdicionProducto = ({
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label className="small fw-bold text-muted">
-                      Colores Disponibles
+                      {configCategoria.labelColores}
                     </Form.Label>
                     <div className="d-flex flex-wrap gap-1 mb-2">
-                      {COLORES_COMUNES.map((color) => (
+                      {COLORES.map((color) => (
                         <Button
                           key={color}
                           variant={
@@ -296,9 +292,7 @@ const ModalEdicionProducto = ({
                           size="sm"
                           className="rounded-pill px-3 py-1"
                           style={{ fontSize: "0.75rem" }}
-                          onClick={() =>
-                            toggleSeleccionEdicion("colores", color)
-                          }
+                          onClick={() => toggleSeleccionEdicion("colores", color)}
                         >
                           {color}
                         </Button>
@@ -307,12 +301,12 @@ const ModalEdicionProducto = ({
                     <Form.Control
                       type="text"
                       size="sm"
-                      placeholder="Otros colores (ej: Turquesa, Oro)"
+                      placeholder={configCategoria.placeholderColores}
                       onChange={handleColoresChange}
                       value={
                         Array.isArray(productoEditar.colores)
                           ? productoEditar.colores
-                              .filter((c) => !COLORES_COMUNES.includes(c))
+                              .filter((c) => !COLORES.includes(c))
                               .join(", ")
                           : ""
                       }
