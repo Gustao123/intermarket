@@ -69,6 +69,34 @@ const Encabezado = () => {
     location.pathname === "/login";
 
 
+  // =========================================================
+  // MODO DEMO
+  // Se detecta por el correo de la cuenta demo. En la demo se
+  // ocultan "Cambiar de rol" y "Cerrar sesión".
+  // =========================================================
+
+  const esDemo = useMemo(() => {
+
+    if (!user?.email) {
+      return false;
+    }
+
+    const correosDemo = [
+      import.meta.env.VITE_DEMO_EMAIL,
+      "democomprador@gmail.com"
+    ]
+      .filter(Boolean)
+      .map((correo) =>
+        correo.trim().toLowerCase()
+      );
+
+    return correosDemo.includes(
+      user.email.trim().toLowerCase()
+    );
+
+  }, [user?.email]);
+
+
   const nombreUsuario = useMemo(() => {
 
     if (!user?.email) {
@@ -952,32 +980,45 @@ const Encabezado = () => {
         )}
 
 
-        <Dropdown.Item
-          onClick={() =>
-            navegar("/seleccion-rol")
-          }
-        >
+        {/* ============================================
+            CAMBIAR ROL Y CERRAR SESIÓN
+            (ocultos en la cuenta demo)
+        ============================================ */}
 
-          <i className="bi bi-arrow-left-right"></i>
+        {!esDemo && (
 
-          Cambiar de rol
+          <>
 
-        </Dropdown.Item>
+            <Dropdown.Item
+              onClick={() =>
+                navegar("/seleccion-rol")
+              }
+            >
+
+              <i className="bi bi-arrow-left-right"></i>
+
+              Cambiar de rol
+
+            </Dropdown.Item>
 
 
-        <Dropdown.Divider />
+            <Dropdown.Divider />
 
 
-        <Dropdown.Item
-          onClick={cerrarSesion}
-          className="liquid-logout-item"
-        >
+            <Dropdown.Item
+              onClick={cerrarSesion}
+              className="liquid-logout-item"
+            >
 
-          <i className="bi bi-box-arrow-right"></i>
+              <i className="bi bi-box-arrow-right"></i>
 
-          Cerrar sesión
+              Cerrar sesión
 
-        </Dropdown.Item>
+            </Dropdown.Item>
+
+          </>
+
+        )}
 
       </Dropdown.Menu>
 
@@ -1875,39 +1916,46 @@ const Encabezado = () => {
                     </button>
 
 
-                    {/* CAMBIAR ROL */}
+                    {/* CAMBIAR ROL Y CERRAR SESIÓN
+                        (ocultos en la cuenta demo) */}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navegar(
-                          "/seleccion-rol"
-                        )
-                      }
-                    >
+                    {!esDemo && (
 
-                      <i className="bi bi-arrow-left-right"></i>
+                      <>
 
-                      Cambiar de rol
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/seleccion-rol"
+                            )
+                          }
+                        >
 
-                    </button>
+                          <i className="bi bi-arrow-left-right"></i>
+
+                          Cambiar de rol
+
+                        </button>
 
 
-                    {/* CERRAR SESIÓN */}
+                        <button
+                          type="button"
+                          className="liquid-offcanvas-logout"
+                          onClick={
+                            cerrarSesion
+                          }
+                        >
 
-                    <button
-                      type="button"
-                      className="liquid-offcanvas-logout"
-                      onClick={
-                        cerrarSesion
-                      }
-                    >
+                          <i className="bi bi-box-arrow-right"></i>
 
-                      <i className="bi bi-box-arrow-right"></i>
+                          Cerrar sesión
 
-                      Cerrar sesión
+                        </button>
 
-                    </button>
+                      </>
+
+                    )}
 
                   </nav>
 
